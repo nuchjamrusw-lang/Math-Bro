@@ -9,10 +9,10 @@ const schema = z.object({ username: z.string().regex(USERNAME_RE), password: z.s
 
 export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonError("Username must be 3–20 letters/numbers/_ and password at least 6 characters");
+  if (!parsed.success) return jsonError("Username must be 3–20 letters/numbers/_ and password at least 6 characters", 400, "BAD_SIGNUP");
   const { username, password } = parsed.data;
   const exists = await prisma.user.findFirst({ where: { username: { equals: username, mode: "insensitive" } } });
-  if (exists) return jsonError("That username is taken", 409);
+  if (exists) return jsonError("That username is taken", 409, "USERNAME_TAKEN");
   const passwordHash = await bcrypt.hash(password, 10);
   const current = await getSessionUser();
   // Upgrading a guest keeps their match history.

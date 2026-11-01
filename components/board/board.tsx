@@ -6,6 +6,7 @@ import type { BoardLayout, PremiumType } from "@/lib/game-rules/board-layout";
 import type { Tile as TileT } from "@/lib/tile-manager";
 import { Tile } from "@/components/tile/tile";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/client";
 
 export interface TentativeTile { tile: TileT; value?: string }
 
@@ -108,20 +109,21 @@ export const GameBoard = memo(function GameBoard({
 });
 
 export function BoardLegend({ className }: { className?: string }) {
-  const items: [string, string, string][] = [
-    ["bg-te", "3× Equation", "สมการ ×3"],
-    ["bg-de", "2× Equation", "สมการ ×2"],
-    ["bg-tp", "3× Piece", "เบี้ย ×3"],
-    ["bg-dp", "2× Piece", "เบี้ย ×2"],
+  const { t } = useI18n();
+  const items: [string, string][] = [
+    ["bg-te", t("legend.TE")],
+    ["bg-de", t("legend.DE")],
+    ["bg-tp", t("legend.TP")],
+    ["bg-dp", t("legend.DP")],
   ];
   return (
     <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted", className)}>
-      {items.map(([c, en, th]) => (
-        <span key={en} className="flex items-center gap-1.5" title={th}>
-          <span className={cn("size-3 rounded-[4px]", c)} /> {en}
+      {items.map(([c, label]) => (
+        <span key={c} className="flex items-center gap-1.5">
+          <span className={cn("size-3 rounded-[4px]", c)} /> {label}
         </span>
       ))}
-      <span className="flex items-center gap-1.5"><span className="text-tp-ink">★</span> Start (3× Piece)</span>
+      <span className="flex items-center gap-1.5"><span className="text-tp-ink">★</span> {t("legend.star")}</span>
     </div>
   );
 }

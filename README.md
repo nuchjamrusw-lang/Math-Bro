@@ -15,6 +15,8 @@ Math&Bro is a web game for A-Math, the crossword-style equation board game, play
 - **WebRTC voice chat** uses its own signaling namespace, so problems with voice never affect the game.
 - **Match history, frame-by-frame replay, profiles and leaderboard** are stored in PostgreSQL through Prisma.
 - **Practice mode** runs the same engine in the browser for two players on one device.
+- **Three languages: ไทย / English / 中文.** Switch from the language menu in the navbar or game header. The choice
+  is stored in a cookie. Without a cookie, the language follows the browser and falls back to Thai.
 - **Score and tile management modes A–D:** automatic or manual scoring, and automatic or manual tile drawing.
 
 ## Run without a computer (iPad / browser only)
@@ -58,7 +60,7 @@ Or build the image with `docker build -t mathbro .`. The container runs `prisma 
 ## Tests
 
 ```bash
-npm test                        # 84 unit and integration tests (engine, rules, scoring, timer, sockets)
+npm test                        # 89 unit and integration tests (engine, rules, scoring, timer, sockets)
 npm run typecheck
 # Browser play-through: two real browsers, voice chat, challenge, passes, result screen and mobile layout
 npm run build && PORT=3100 npm start &
@@ -97,6 +99,8 @@ lib/
   tile-manager/          seeded bag, draws, rack points, draw-order rank
   timer-engine/          pure chess-clock functions and penalties
   game-engine/           GameEngine state machine, placement analysis, replay frames, per-viewer views
+  i18n/                  en/th/zh dictionaries (type-checked to have identical keys), how-to-play content,
+                         server getT(), client useI18n(), error/notice formatting
   room-settings.ts       Create Room settings → engine rules
   protocol.ts            socket message types and zod schemas
 server/

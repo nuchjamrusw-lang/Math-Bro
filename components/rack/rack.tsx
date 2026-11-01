@@ -2,6 +2,7 @@
 import { Tile } from "@/components/tile/tile";
 import type { Tile as TileT } from "@/lib/tile-manager";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/client";
 
 export interface RackProps {
   tiles: TileT[];
@@ -17,12 +18,14 @@ export interface RackProps {
 
 /** The player's 8-slot rack. Hidden racks (opponent) render face-down placeholders only. */
 export function Rack({ tiles, slots = 8, selectedId, markedIds, hiddenCount, disabled, onTilePointerDown, onSlotClick, className }: RackProps) {
+  const { t } = useI18n();
   const count = Math.max(slots, tiles.length);
   return (
     <div
       className={cn("grid w-full max-w-[640px] gap-[1.4%] rounded-2xl border border-line bg-[#f1f2f6] p-[1.6%] shadow-inner", className)}
       style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
-      aria-label="Your rack"
+      aria-label={t("rack.aria")}
+      data-testid="rack"
     >
       {Array.from({ length: count }).map((_, i) => {
         const t = tiles[i];

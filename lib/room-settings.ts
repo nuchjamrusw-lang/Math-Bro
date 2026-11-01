@@ -35,14 +35,3 @@ export function rulesFromSettings(s: RoomSettings): GameRulesConfig {
     },
   });
 }
-
-export const LABELS = {
-  timeMode: { BLITZ: "Blitz · 5 min", RAPID: "Rapid · 12 min", STANDARD: "Standard · 22 min", CUSTOM: "Custom" },
-  scoreManagement: {
-    AUTO_SCORE_AUTO_TILES: "Auto score + Auto tiles",
-    AUTO_SCORE_ONLY: "Auto score only",
-    AUTO_TILES_ONLY: "Auto tiles only",
-    MANUAL: "Manual score + Manual tiles",
-  },
-  validation: { CHALLENGE: "Challenge ON", STRICT: "Strict mode" },
-} as const;

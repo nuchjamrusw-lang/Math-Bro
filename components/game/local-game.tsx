@@ -13,6 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Segmented } from "@/components/ui/segmented";
 import { Card } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
+import { useI18n } from "@/lib/i18n/client";
+import { ackError } from "@/lib/i18n/format";
 
 /** Pass-and-play: the full engine runs in the browser; the rack shown is the side to move. */
 export function LocalGame() {
@@ -22,33 +25,34 @@ export function LocalGame() {
 }
 
 function LocalSetup({ onStart }: { onStart: (s: { names: [string, string]; rules: GameRulesConfig }) => void }) {
-  const [a, setA] = useState("Player 1");
-  const [b, setB] = useState("Player 2");
+  const { t } = useI18n();
+  const [a, setA] = useState(t("prac.p1"));
+  const [b, setB] = useState(t("prac.p2"));
   const [validation, setValidation] = useState<"STRICT" | "CHALLENGE">("STRICT");
   const [time, setTime] = useState<"BLITZ" | "RAPID" | "STANDARD">("STANDARD");
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
-      <Logo />
-      <h1 className="mt-8 text-2xl font-bold tracking-tight">Practice mode</h1>
-      <p className="mt-1 text-sm text-muted">Two players share this device. The rack shown always belongs to the player whose turn it is.</p>
+      <div className="flex items-center justify-between"><Logo /><LanguageSwitcher /></div>
+      <h1 className="mt-8 text-2xl font-bold tracking-tight">{t("prac.title")}</h1>
+      <p className="mt-1 text-sm text-muted">{t("prac.desc")}</p>
       <Card className="mt-6 space-y-5 p-6">
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5"><Label htmlFor="pa">Player A</Label><Input id="pa" value={a} onChange={(e) => setA(e.target.value.slice(0, 20))} /></div>
-          <div className="space-y-1.5"><Label htmlFor="pb">Player B</Label><Input id="pb" value={b} onChange={(e) => setB(e.target.value.slice(0, 20))} /></div>
+          <div className="space-y-1.5"><Label htmlFor="pa">{t("prac.playerA")}</Label><Input id="pa" value={a} onChange={(e) => setA(e.target.value.slice(0, 20))} /></div>
+          <div className="space-y-1.5"><Label htmlFor="pb">{t("prac.playerB")}</Label><Input id="pb" value={b} onChange={(e) => setB(e.target.value.slice(0, 20))} /></div>
         </div>
-        <div className="space-y-2"><Label>Validation</Label>
+        <div className="space-y-2"><Label>{t("prac.validation")}</Label>
           <Segmented name="Validation" cols={2} value={validation} onChange={setValidation} options={[
-            { value: "STRICT", label: "Strict", hint: "Learn: only correct moves" },
-            { value: "CHALLENGE", label: "Challenge", hint: "Practice challenging" },
+            { value: "STRICT", label: t("prac.strict"), hint: t("prac.strictHint") },
+            { value: "CHALLENGE", label: t("prac.challenge"), hint: t("prac.challengeHint") },
           ]} />
         </div>
-        <div className="space-y-2"><Label>Time per side</Label>
+        <div className="space-y-2"><Label>{t("prac.time")}</Label>
           <Segmented name="Time" cols={3} value={time} onChange={setTime} options={[
-            { value: "BLITZ", label: "5 min" }, { value: "RAPID", label: "12 min" }, { value: "STANDARD", label: "22 min" },
+            { value: "BLITZ", label: t("prac.min", { n: 5 }) }, { value: "RAPID", label: t("prac.min", { n: 12 }) }, { value: "STANDARD", label: t("prac.min", { n: 22 }) },
           ]} />
         </div>
         <Button size="lg" className="w-full" data-testid="start-practice"
-          onClick={() => onStart({ names: [a || "Player 1", b || "Player 2"], rules: buildRules({ validation, time: { mode: time } }) })}>Start practice game</Button>
+          onClick={() => onStart({ names: [a || t("prac.p1"), b || t("prac.p2")], rules: buildRules({ validation, time: { mode: time } }) })}>{t("prac.start")}</Button>
       </Card>
     </div>
   );
@@ -63,6 +67,7 @@ function LocalMatch({ names, rules, onNew }: { names: [string, string]; rules: G
     });
     engine.current.start(Date.now());
   }
+  const { t, td } = useI18n();
   const [version, setVersion] = useState(0);
   const [hidden, setHidden] = useState(false);
   const [showResult, setShowResult] = useState(true);
@@ -97,22 +102,24 @@ function LocalMatch({ names, rules, onNew }: { names: [string, string]; rules: G
         case "acceptRuling": e.acceptChallengeResult(side, now); break;
         case "draw": e.drawManual(side, pid, a.count, now); break;
         case "resign": e.resign(side, pid, now); break;
-        default: return { ok: false, error: "Not available in practice mode" };
+        default: return { ok: false, error: td("err.PRACTICE_NA"), code: "PRACTICE_NA" };
       }
       setVersion((v) => v + 1);
       return { ok: true };
     } catch (err) {
-      return { ok: false, error: err instanceof GameError ? err.message : String(err) };
+      if (err instanceof GameError) return { ok: false, error: ackError(td, { error: err.message, code: err.code, key: err.key, params: err.params, details: err.errors }) };
+      return { ok: false, error: String(err) };
     }
-  }, [e, actingSide]);
+  }, [e, actingSide, td]);
 
   const header = (
     <header className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex items-center gap-3"><Logo /><Badge tone="primary">Practice</Badge></div>
-      <div className="flex gap-2">
-        <Button variant="ghost" size="sm" onClick={() => setHidden((h) => !h)}>{hidden ? <Eye /> : <EyeOff />}{hidden ? "Show rack" : "Hide rack"}</Button>
-        <Button variant="secondary" size="sm" onClick={onNew}><RotateCcw />New game</Button>
-        <Button variant="ghost" size="sm" asChild><Link href="/play">Play online</Link></Button>
+      <div className="flex items-center gap-3"><Logo /><Badge tone="primary">{t("prac.badge")}</Badge></div>
+      <div className="flex flex-wrap gap-2">
+        <LanguageSwitcher compact />
+        <Button variant="ghost" size="sm" onClick={() => setHidden((h) => !h)}>{hidden ? <Eye /> : <EyeOff />}{hidden ? t("prac.showRack") : t("prac.hideRack")}</Button>
+        <Button variant="secondary" size="sm" onClick={onNew}><RotateCcw />{t("prac.new")}</Button>
+        <Button variant="ghost" size="sm" asChild><Link href="/play">{t("prac.online")}</Link></Button>
       </div>
     </header>
   );
@@ -123,9 +130,9 @@ function LocalMatch({ names, rules, onNew }: { names: [string, string]; rules: G
       {hidden && view.phase !== "FINISHED" && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-bg/95 backdrop-blur" data-testid="handoff">
           <div className="text-center">
-            <p className="text-sm text-muted">Pass the device to</p>
+            <p className="text-sm text-muted">{t("prac.passTo")}</p>
             <p className="mt-1 text-3xl font-bold">{view.sides[actingSide].name}</p>
-            <Button size="lg" className="mt-6" onClick={() => setHidden(false)}>I&apos;m ready — show my rack</Button>
+            <Button size="lg" className="mt-6" onClick={() => setHidden(false)}>{t("prac.ready")}</Button>
           </div>
         </div>
       )}

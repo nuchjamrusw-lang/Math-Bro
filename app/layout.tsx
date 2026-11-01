@@ -3,6 +3,8 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/client/auth";
 import { ToastProvider } from "@/components/ui/toast";
 import { getSessionUser } from "@/lib/auth/server";
+import { I18nProvider } from "@/lib/i18n/client";
+import { getLang } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
   title: { default: "Math&Bro — Real-time A-Math", template: "%s · Math&Bro" },
@@ -12,9 +14,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#F8F9FB" };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const user = await getSessionUser();
+  const [user, lang] = await Promise.all([getSessionUser(), getLang()]);
   return (
-    <html lang="th">
+    <html lang={lang}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -24,9 +26,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="min-h-screen">
-        <AuthProvider initialUser={user}>
-          <ToastProvider>{children}</ToastProvider>
-        </AuthProvider>
+        <I18nProvider initialLang={lang}>
+          <AuthProvider initialUser={user}>
+            <ToastProvider>{children}</ToastProvider>
+          </AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   );

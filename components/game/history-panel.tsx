@@ -4,42 +4,48 @@ import type { GameView, MoveRecord } from "@/lib/game-engine";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ScoreBreakdown } from "@/components/scoreboard/score-breakdown";
 import { displaySymbol } from "@/components/tile/tile";
+import { useI18n } from "@/lib/i18n/client";
+import type { TFn } from "@/lib/i18n";
 import { cn, formatDuration } from "@/lib/utils";
 
-export function describeRecord(h: MoveRecord, names: string[]): { title: string; detail?: string; tone?: "success" | "error" | "warning" | "muted" } {
-  const who = h.sideIndex !== null ? names[h.sideIndex] : "";
+export function describeRecord(h: MoveRecord, names: string[], t: TFn): { title: string; detail?: string; tone?: "success" | "error" | "warning" | "muted" } {
+  const name = h.sideIndex !== null && h.sideIndex !== undefined ? names[h.sideIndex] : "";
   const eq = h.equations?.map((e) => e.split(" ").map(displaySymbol).join(" ")).join(" · ");
   switch (h.type) {
-    case "START": return { title: "Game started", detail: h.note, tone: "muted" };
+    case "START": return { title: t("hist.started"), detail: name ? t("hist.movesFirst", { name }) : undefined, tone: "muted" };
     case "PLAY": return h.status === "WITHDRAWN"
-      ? { title: `${who} — move withdrawn`, detail: eq, tone: "error" }
-      : { title: `${who}${h.bingo ? " — BINGO!" : ""}`, detail: eq, tone: h.bingo ? "success" : undefined };
-    case "PASS": return { title: `${who} passed`, tone: "muted" };
-    case "EXCHANGE": return { title: `${who} exchanged ${h.exchangedCount} tile${h.exchangedCount === 1 ? "" : "s"}`, tone: "muted" };
-    case "CHALLENGE": return { title: `${who} challenged`, detail: h.note, tone: "warning" };
-    case "RECHALLENGE": return { title: `${who} requested a re-challenge`, tone: "warning" };
-    case "DRAW": return { title: `${who} drew ${h.drawnCount} tile(s)`, tone: "muted" };
-    case "RESIGN": return { title: `${who} resigned`, tone: "error" };
-    case "TIMEOUT": return { title: "Time out", detail: h.note, tone: "error" };
-    case "PAUSE": return { title: "Paused", tone: "muted" };
-    case "RESUME": return { title: "Resumed", tone: "muted" };
-    case "END": return { title: "Game over", tone: "muted" };
+      ? { title: t("hist.withdrawn", { name }), detail: eq, tone: "error" }
+      : { title: h.bingo ? t("hist.bingo", { name }) : name, detail: eq, tone: h.bingo ? "success" : undefined };
+    case "PASS": return { title: t("hist.passed", { name }), tone: "muted" };
+    case "EXCHANGE": return { title: t("hist.exchanged", { name, n: h.exchangedCount ?? 0 }), tone: "muted" };
+    case "CHALLENGE": {
+      const first = h.firstValid ?? (h.note ? !h.note.includes("INVALID") : undefined);
+      return { title: t("hist.challenged", { name }), detail: first === undefined ? undefined : first ? t("hist.firstValid") : t("hist.firstInvalid"), tone: "warning" };
+    }
+    case "RECHALLENGE": return { title: t("hist.rechallenge", { name }), tone: "warning" };
+    case "DRAW": return { title: t("hist.drew", { name, n: h.drawnCount ?? 0 }), tone: "muted" };
+    case "RESIGN": return { title: t("hist.resigned", { name }), tone: "error" };
+    case "TIMEOUT": return { title: t("hist.timeout"), detail: name ? t("hist.ranOut", { name }) : undefined, tone: "error" };
+    case "PAUSE": return { title: t("hist.paused"), tone: "muted" };
+    case "RESUME": return { title: t("hist.resumed"), tone: "muted" };
+    case "END": return { title: t("hist.over"), tone: "muted" };
   }
 }
 
 export function HistoryPanel({ view, className }: { view: GameView; className?: string }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState<MoveRecord | null>(null);
   const names = view.sides.map((s) => s.name);
   const items = [...view.history].reverse();
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Move history</h3>
-        <span className="text-xs text-muted">{view.moveNumber} turns</span>
+        <h3 className="text-sm font-semibold">{t("hist.title")}</h3>
+        <span className="text-xs text-muted">{t("hist.turns", { n: view.moveNumber })}</span>
       </div>
       <ol className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
         {items.map((h) => {
-          const d = describeRecord(h, names);
+          const d = describeRecord(h, names, t);
           const clickable = h.type === "PLAY" && !!h.scoreBreakdown;
           return (
             <li key={h.seq}>
@@ -62,8 +68,8 @@ export function HistoryPanel({ view, className }: { view: GameView; className?: 
       </ol>
       <Dialog open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
         <DialogContent className="max-w-lg">
-          <DialogTitle>Move #{open?.moveNumber} · {open?.sideIndex !== undefined && open?.sideIndex !== null ? names[open.sideIndex] : ""}</DialogTitle>
-          <p className="mb-4 text-xs text-muted">Time used: {formatDuration(open?.timeUsedMs)}</p>
+          <DialogTitle>{t("hist.moveTitle", { n: open?.moveNumber ?? 0, name: open?.sideIndex !== undefined && open?.sideIndex !== null ? names[open.sideIndex] : "" })}</DialogTitle>
+          <p className="mb-4 text-xs text-muted">{t("hist.timeUsed", { t: formatDuration(open?.timeUsedMs) })}</p>
           {open?.scoreBreakdown && <ScoreBreakdown score={open.scoreBreakdown} />}
         </DialogContent>
       </Dialog>

@@ -11,7 +11,8 @@ import { roomSettingsSchema, rulesFromSettings, DEFAULT_ROOM_SETTINGS, type Room
 import * as db from "./persistence";
 
 export class RoomError extends Error {
-  constructor(public code: string, message: string) { super(message); }
+  /** `key`: i18n key under "err." (defaults to `code`). */
+  constructor(public code: string, message: string, public key: string = code, public params?: Record<string, string | number>) { super(message); }
 }
 
 interface Member extends RoomMemberInfo { sockets: number; disconnectedAt: number | null }
@@ -133,14 +134,14 @@ export class RoomManager {
     if (target.role === "PLAYER") {
       if (target.side !== 0 && target.side !== 1) throw new RoomError("BAD_SEAT", "Pick side A or B");
       const taken = room.sideMembers(target.side).filter((x) => x.userId !== user.uid).length;
-      if (taken >= room.seatsPerSide) throw new RoomError("SEAT_TAKEN", "That side is full");
+      if (taken >= room.seatsPerSide) throw new RoomError("SEAT_TAKEN", "That side is full", "SIDE_FULL");
       m.role = "PLAYER"; m.side = target.side;
     } else if (target.role === "REFEREE") {
       const current = room.referee();
-      if (current && current.userId !== user.uid) throw new RoomError("SEAT_TAKEN", "This room already has a referee");
+      if (current && current.userId !== user.uid) throw new RoomError("SEAT_TAKEN", "This room already has a referee", "HAS_REFEREE");
       m.role = "REFEREE"; m.side = null;
     } else {
-      if (!room.settings.allowSpectators) throw new RoomError("NOT_ALLOWED", "Spectators are disabled for this room");
+      if (!room.settings.allowSpectators) throw new RoomError("NOT_ALLOWED", "Spectators are disabled for this room", "NO_SPECTATORS");
       m.role = "SPECTATOR"; m.side = null;
     }
     this.emit.roomState(room);
@@ -156,10 +157,10 @@ export class RoomManager {
   startGame(user: SessionUser, code: string): Room {
     const room = this.get(code);
     if (room.hostId !== user.uid) throw new RoomError("NOT_HOST", "Only the host can start the game");
-    if (room.status === "PLAYING") throw new RoomError("IN_GAME", "The game has already started");
+    if (room.status === "PLAYING") throw new RoomError("IN_GAME", "The game has already started", "ALREADY_STARTED");
     const sides = [0, 1].map((s) => room.sideMembers(s));
     if (sides.some((s) => s.length !== room.seatsPerSide)) {
-      throw new RoomError("SEATS_EMPTY", `Each side needs ${room.seatsPerSide} player${room.seatsPerSide > 1 ? "s" : ""}`);
+      throw new RoomError("SEATS_EMPTY", `Each side needs ${room.seatsPerSide} player${room.seatsPerSide > 1 ? "s" : ""}`, "SEATS_EMPTY", { n: room.seatsPerSide });
     }
     const now = this.now();
     const engine = GameEngine.create({
@@ -179,7 +180,7 @@ export class RoomManager {
     this.emit.roomState(room);
     this.emit.gameState(room);
     const starter = engine.state.sides[engine.state.turn].name;
-    this.emit.notice(room, { kind: "INFO", message: `Draw for first move: ${starter} starts`, sideIndex: engine.state.turn });
+    this.emit.notice(room, { kind: "INFO", message: `Draw for first move: ${starter} starts`, key: "firstMove", params: { name: starter }, sideIndex: engine.state.turn });
     if (this.persist) {
       db.createMatch({
         roomCode: room.code, settings: room.settings, state: engine.state,
@@ -195,7 +196,7 @@ export class RoomManager {
   rematch(user: SessionUser, code: string) {
     const room = this.get(code);
     if (room.hostId !== user.uid) throw new RoomError("NOT_HOST", "Only the host can start a rematch");
-    if (room.status !== "FINISHED") throw new RoomError("IN_GAME", "Finish the current game first");
+    if (room.status !== "FINISHED") throw new RoomError("IN_GAME", "Finish the current game first", "FINISH_FIRST");
     room.status = "LOBBY";
     room.engine = null;
     room.matchId = null;
@@ -337,7 +338,7 @@ export class RoomManager {
               e.state.phase = "CHALLENGE_RESULT";
               const loser = e.challengeLoser(e.state.challenge!);
               e.rechallenge(loser, e.state.challenge!.rechallenge?.requestedBy ?? "system", now);
-              this.emit.notice(room, { kind: "INFO", message: "Referee unavailable — the system made the second check" });
+              this.emit.notice(room, { kind: "INFO", message: "Referee unavailable — the system made the second check", key: "refereeAbsent" });
               this.afterChange(room, before);
             }
           } else room.refereeAbsentSince = null;
@@ -390,24 +391,27 @@ export function noticesFor(state: GameState, fresh: MoveRecord[]): GameNotice[] 
   const out: GameNotice[] = [];
   const name = (i: number | null) => (i === null ? "" : state.sides[i]?.name ?? "");
   for (const h of fresh) {
-    if (h.type === "PLAY" && h.status === "ACCEPTED" && h.bingo) out.push({ kind: "BINGO", message: `BINGO! ${name(h.sideIndex)} used all 8 tiles (+40)`, sideIndex: h.sideIndex });
-    if (h.type === "PLAY" && h.status === "WITHDRAWN") out.push({ kind: "RULING", message: `Challenge upheld — ${name(h.sideIndex)}'s move was withdrawn`, sideIndex: h.sideIndex });
-    if (h.type === "CHALLENGE") out.push({ kind: "CHALLENGE", message: `${name(h.sideIndex)} challenged! ${h.note ?? ""}`, sideIndex: h.sideIndex });
-    if (h.type === "RECHALLENGE") out.push({ kind: "CHALLENGE", message: `${name(h.sideIndex)} requested a re-challenge`, sideIndex: h.sideIndex });
-    if (h.type === "TIMEOUT") out.push({ kind: "TIMEOUT", message: h.note ?? "Time is up", sideIndex: h.sideIndex });
-    if (h.type === "PAUSE") out.push({ kind: "PAUSE", message: "Game paused" });
-    if (h.type === "RESUME") out.push({ kind: "PAUSE", message: "Game resumed" });
+    const n = name(h.sideIndex);
+    const push = (kind: GameNotice["kind"], message: string, key: string, params: Record<string, string | number> = {}) =>
+      out.push({ kind, message, key, params: { name: n, ...params }, sideIndex: h.sideIndex });
+    if (h.type === "PLAY" && h.status === "ACCEPTED" && h.bingo) push("BINGO", `BINGO! ${n} used all 8 tiles (+40)`, "bingo");
+    if (h.type === "PLAY" && h.status === "WITHDRAWN") push("RULING", `Challenge upheld — ${n}'s move was withdrawn`, "withdrawn");
+    if (h.type === "CHALLENGE") push("CHALLENGE", `${n} challenged! ${h.note ?? ""}`, h.firstValid === false ? "challengedInvalid" : "challengedValid");
+    if (h.type === "RECHALLENGE") push("CHALLENGE", `${n} requested a re-challenge`, "rechallenge");
+    if (h.type === "TIMEOUT") push("TIMEOUT", h.note ?? "Time is up", "timeout");
+    if (h.type === "PAUSE") push("PAUSE", "Game paused", "paused");
+    if (h.type === "RESUME") push("PAUSE", "Game resumed", "resumed");
   }
   const lastCh = state.challenges[state.challenges.length - 1];
   if (lastCh?.finalRuling === "VALID" && fresh.some((h) => h.type === "PLAY" && h.status === "ACCEPTED" && h.moveNumber === lastCh.moveNumber)) {
-    out.push({ kind: "RULING", message: `Challenge failed — the move stands and ${name(lastCh.challengerSide)} loses the turn` });
+    out.push({ kind: "RULING", message: `Challenge failed — the move stands and ${name(lastCh.challengerSide)} loses the turn`, key: "challengeFailed", params: { name: name(lastCh.challengerSide) } });
   }
   return out;
 }
 
-export function errorMessage(e: unknown): { error: string; code?: string; details?: unknown } {
-  if (e instanceof GameError) return { error: e.message, code: e.code, details: e.errors };
-  if (e instanceof RoomError) return { error: e.message, code: e.code };
+export function errorMessage(e: unknown): { error: string; code?: string; key?: string; params?: Record<string, string | number>; details?: unknown } {
+  if (e instanceof GameError) return { error: e.message, code: e.code, key: e.key, params: e.params, details: e.errors };
+  if (e instanceof RoomError) return { error: e.message, code: e.code, key: e.key, params: e.params };
   console.error(e);
   return { error: "Unexpected server error", code: "INTERNAL" };
 }

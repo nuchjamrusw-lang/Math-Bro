@@ -29,7 +29,7 @@
   --color-tile: #fffdf7;
   --color-tile-edge: #e9dfc6;
 
-  --font-sans: "Inter", "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", "IBM Plex Sans Thai", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --shadow-soft: 0 1px 2px rgb(32 35 43 / 0.04), 0 4px 16px rgb(32 35 43 / 0.05);

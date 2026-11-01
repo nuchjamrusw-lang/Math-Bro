@@ -1,11 +1,13 @@
 "use client";
 import { ShieldAlert, ShieldCheck, Gavel, Check, Scale, Hourglass } from "lucide-react";
+import { useState } from "react";
 import type { GameView } from "@/lib/game-engine";
+import { isAutoScore } from "@/lib/game-rules/config";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogClose } from "@/components/ui/dialog";
-import { ERROR_TITLES } from "@/lib/math-validator/errors";
 import { displaySymbol } from "@/components/tile/tile";
-import { useState } from "react";
+import { useI18n } from "@/lib/i18n/client";
+import { validationDetail, validationTitle } from "@/lib/i18n/format";
 
 const fmtEq = (t: string) => t.split(" ").map(displaySymbol).join(" ");
 
@@ -19,6 +21,7 @@ export function ChallengePanel({ view, mySide, isReferee, now, onAction, busy }:
   view: GameView; mySide: number | null; isReferee: boolean; now: number; busy?: boolean;
   onAction: (a: { type: "challenge" } | { type: "accept" } | { type: "rechallenge" } | { type: "acceptRuling" } | { type: "referee"; valid: boolean }) => void;
 }) {
+  const { t, td } = useI18n();
   const [confirm, setConfirm] = useState(false);
   const p = view.pending;
   if (view.phase === "CHALLENGE_WINDOW" && p) {
@@ -26,30 +29,30 @@ export function ChallengePanel({ view, mySide, isReferee, now, onAction, busy }:
     const reviewer = mySide !== null && !mine;
     return (
       <div className="rounded-2xl border border-warning/40 bg-warning-soft/60 p-4 text-sm" data-testid="challenge-window">
-        <p className="flex items-center gap-2 font-semibold"><ShieldAlert className="size-4 text-warning" />
-          {mine ? "Waiting for your opponent to review your move" : `${view.sides[p.sideIndex].name} played — review the move`}
+        <p className="flex items-center gap-2 font-semibold"><ShieldAlert className="size-4 shrink-0 text-warning" />
+          {mine ? t("ch.waitingReview") : t("ch.reviewMove", { name: view.sides[p.sideIndex].name })}
         </p>
         <div className="mt-2 space-y-1">
           {p.equations.map((e, i) => <p key={i} className="font-mono font-semibold">{fmtEq(e.text)}</p>)}
         </div>
-        <p className="mt-1 text-xs text-muted">{view.rules.scoreManagement === "AUTO_SCORE_AUTO_TILES" || view.rules.scoreManagement === "AUTO_SCORE_ONLY" ? `Score if it stands: +${p.points}` : `Declared score: +${p.points}`}</p>
+        <p className="mt-1 text-xs text-muted">{isAutoScore(view.rules) ? t("ch.scoreIfStands", { n: p.points }) : t("ch.declared", { n: p.points })}</p>
         {reviewer && (
           <>
-            <p className="mt-2 text-xs text-ink/70">Challenge before you touch your rack. Moving tiles counts as accepting.</p>
+            <p className="mt-2 text-xs text-ink/70">{t("ch.hint")}</p>
             <div className="mt-3 flex gap-2">
-              <Button variant="warning" className="flex-1" onClick={() => setConfirm(true)} disabled={busy}><Gavel />Challenge</Button>
-              <Button variant="secondary" className="flex-1" onClick={() => onAction({ type: "accept" })} disabled={busy}><Check />Accept move</Button>
+              <Button variant="warning" className="flex-1" onClick={() => setConfirm(true)} disabled={busy} data-testid="challenge-btn"><Gavel />{t("ch.challenge")}</Button>
+              <Button variant="secondary" className="flex-1" onClick={() => onAction({ type: "accept" })} disabled={busy} data-testid="accept-move-btn"><Check />{t("ch.acceptMove")}</Button>
             </div>
           </>
         )}
         <Dialog open={confirm} onOpenChange={setConfirm}>
           <DialogContent>
-            <DialogTitle>Challenge this move?</DialogTitle>
-            <DialogDescription>The clock stops and the equations are checked. If the move is correct, you lose your turn. If it is wrong, the tiles are taken back and your opponent scores nothing.</DialogDescription>
+            <DialogTitle>{t("ch.confirmTitle")}</DialogTitle>
+            <DialogDescription>{t("ch.confirmDesc")}</DialogDescription>
             <div className="mt-4 space-y-1 rounded-xl bg-[#f6f7f9] p-3">{p.equations.map((e, i) => <p key={i} className="font-mono font-semibold">{fmtEq(e.text)}</p>)}</div>
             <DialogFooter>
-              <DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose>
-              <Button variant="warning" onClick={() => { setConfirm(false); onAction({ type: "challenge" }); }}>Yes, challenge</Button>
+              <DialogClose asChild><Button variant="secondary">{t("ch.cancel")}</Button></DialogClose>
+              <Button variant="warning" onClick={() => { setConfirm(false); onAction({ type: "challenge" }); }} data-testid="confirm-challenge">{t("ch.yes")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -66,8 +69,8 @@ export function ChallengePanel({ view, mySide, isReferee, now, onAction, busy }:
     return (
       <div className={`rounded-2xl border p-4 text-sm ${valid ? "border-success/30 bg-success-soft/60" : "border-error/30 bg-error-soft/60"}`} data-testid="challenge-result">
         <p className="flex items-center gap-2 font-semibold">
-          {valid ? <ShieldCheck className="size-4 text-success" /> : <ShieldAlert className="size-4 text-error" />}
-          {valid ? "Challenge failed — the equation is correct" : "Challenge upheld — the equation is wrong"}
+          {valid ? <ShieldCheck className="size-4 shrink-0 text-success" /> : <ShieldAlert className="size-4 shrink-0 text-error" />}
+          {valid ? t("ch.failed") : t("ch.upheld")}
         </p>
         <div className="mt-2 space-y-1">
           {c.first.equations.map((e, i) => (
@@ -76,26 +79,26 @@ export function ChallengePanel({ view, mySide, isReferee, now, onAction, busy }:
             </p>
           ))}
         </div>
-        {c.first.errors.map((e, i) => <p key={i} className="mt-1 text-xs text-error">{ERROR_TITLES[e.code].en}: {e.message}</p>)}
-        <p className="mt-2 text-xs text-muted">{valid ? `${view.sides[c.challengerSide].name} will lose the turn.` : `${view.sides[c.challengedSide].name}'s tiles return to the rack.`}</p>
+        {c.first.errors.map((e, i) => <p key={i} className="mt-1 text-xs text-error">{validationTitle(td, e)}: {validationDetail(td, e)}</p>)}
+        <p className="mt-2 text-xs text-muted">{valid ? t("ch.loseTurn", { name: view.sides[c.challengerSide].name }) : t("ch.tilesReturn", { name: view.sides[c.challengedSide].name })}</p>
         {view.phase === "CHALLENGE_RESULT" && (
           iLost ? (
             <div className="mt-3 flex gap-2">
-              <Button variant="secondary" className="flex-1" onClick={() => onAction({ type: "rechallenge" })} disabled={busy}><Scale />Re-challenge</Button>
-              <Button className="flex-1" onClick={() => onAction({ type: "acceptRuling" })} disabled={busy}>Accept ({secs}s)</Button>
+              <Button variant="secondary" className="flex-1" onClick={() => onAction({ type: "rechallenge" })} disabled={busy}><Scale />{t("ch.rechallenge")}</Button>
+              <Button className="flex-1" onClick={() => onAction({ type: "acceptRuling" })} disabled={busy} data-testid="accept-ruling">{t("ch.acceptSecs", { n: secs })}</Button>
             </div>
-          ) : <p className="mt-2 flex items-center gap-1.5 text-xs text-muted"><Hourglass className="size-3.5" />Re-challenge window: {secs}s</p>
+          ) : <p className="mt-2 flex items-center gap-1.5 text-xs text-muted"><Hourglass className="size-3.5" />{t("ch.window", { n: secs })}</p>
         )}
         {view.phase === "REFEREE_REVIEW" && (
           isReferee ? (
             <div className="mt-3">
-              <p className="mb-2 text-xs font-semibold">Referee ruling (second check)</p>
+              <p className="mb-2 text-xs font-semibold">{t("ch.refereeRuling")}</p>
               <div className="flex gap-2">
-                <Button variant="success" className="flex-1" onClick={() => onAction({ type: "referee", valid: true })} disabled={busy}>Equation valid</Button>
-                <Button variant="danger" className="flex-1" onClick={() => onAction({ type: "referee", valid: false })} disabled={busy}>Equation invalid</Button>
+                <Button variant="success" className="flex-1" onClick={() => onAction({ type: "referee", valid: true })} disabled={busy}>{t("ch.valid")}</Button>
+                <Button variant="danger" className="flex-1" onClick={() => onAction({ type: "referee", valid: false })} disabled={busy}>{t("ch.invalid")}</Button>
               </div>
             </div>
-          ) : <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold"><Gavel className="size-3.5" />Re-challenge requested — waiting for the referee…</p>
+          ) : <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold"><Gavel className="size-3.5" />{t("ch.waitReferee")}</p>
         )}
       </div>
     );

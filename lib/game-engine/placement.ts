@@ -23,9 +23,9 @@ export type PlacementAnalysis =
   | { ok: true; sequences: Sequence[]; direction: "H" | "V" }
   | { ok: false; error: ValidationError };
 
-const err = (code: ValidationError["code"], message: string, cells?: Coord[]): PlacementAnalysis => ({
+const err = (code: ValidationError["code"], message: string, cells: Coord[] | undefined, reason: string): PlacementAnalysis => ({
   ok: false,
-  error: { code, message, cells },
+  error: { code, message, cells, reason },
 });
 
 function readSequence(board: Board, overlay: Map<string, NewTile>, start: Coord, dir: "H" | "V"): Sequence {
@@ -51,13 +51,13 @@ function readSequence(board: Board, overlay: Map<string, NewTile>, start: Coord,
 }
 
 export function analyzePlacement(board: Board, layout: BoardLayout, placed: NewTile[]): PlacementAnalysis {
-  if (placed.length === 0) return err("INVALID_BOARD_PLACEMENT", "Place at least one tile");
+  if (placed.length === 0) return err("INVALID_BOARD_PLACEMENT", "Place at least one tile", undefined, "placeNone");
   const seen = new Set<string>();
   for (const p of placed) {
     const k = `${p.row},${p.col}`;
-    if (!inBounds(board, p.row, p.col)) return err("INVALID_BOARD_PLACEMENT", "Tile is outside the board", [p]);
-    if (board[p.row][p.col]) return err("INVALID_BOARD_PLACEMENT", "That square is already occupied", [p]);
-    if (seen.has(k)) return err("INVALID_BOARD_PLACEMENT", "Two tiles cannot share a square", [p]);
+    if (!inBounds(board, p.row, p.col)) return err("INVALID_BOARD_PLACEMENT", "Tile is outside the board", [p], "outside");
+    if (board[p.row][p.col]) return err("INVALID_BOARD_PLACEMENT", "That square is already occupied", [p], "occupied");
+    if (seen.has(k)) return err("INVALID_BOARD_PLACEMENT", "Two tiles cannot share a square", [p], "sameSquare");
     seen.add(k);
   }
   const rows = new Set(placed.map((p) => p.row));
@@ -66,7 +66,7 @@ export function analyzePlacement(board: Board, layout: BoardLayout, placed: NewT
   if (rows.size === 1 && cols.size === 1) direction = "H"; // single tile, refined below
   else if (rows.size === 1) direction = "H";
   else if (cols.size === 1) direction = "V";
-  else return err("INVALID_BOARD_PLACEMENT", "Tiles must be placed in a single row or column (no diagonals)", placed);
+  else return err("INVALID_BOARD_PLACEMENT", "Tiles must be placed in a single row or column (no diagonals)", placed, "notLine");
 
   const overlay = new Map(placed.map((p) => [`${p.row},${p.col}`, p] as const));
 
@@ -79,7 +79,7 @@ export function analyzePlacement(board: Board, layout: BoardLayout, placed: NewT
       const r = direction === "H" ? fixed : i;
       const c = direction === "H" ? i : fixed;
       if (!overlay.has(`${r},${c}`) && !board[r][c]) {
-        return err("INVALID_BOARD_PLACEMENT", "Tiles in a move must form one continuous line", placed);
+        return err("INVALID_BOARD_PLACEMENT", "Tiles in a move must form one continuous line", placed, "gap");
       }
     }
   }
@@ -87,12 +87,12 @@ export function analyzePlacement(board: Board, layout: BoardLayout, placed: NewT
   const firstMove = isBoardEmpty(board);
   if (firstMove) {
     const { row, col } = layout.center;
-    if (!overlay.has(`${row},${col}`)) return err("NOT_ON_CENTER", "The first equation must cover the center star", placed);
+    if (!overlay.has(`${row},${col}`)) return err("NOT_ON_CENTER", "The first equation must cover the center star", placed, "center");
   } else {
     const touches = placed.some((p) =>
       [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dr, dc]) => inBounds(board, p.row + dr, p.col + dc) && board[p.row + dr][p.col + dc]),
     );
-    if (!touches) return err("MISSING_CONNECTION", "At least one new tile must touch a tile already on the board", placed);
+    if (!touches) return err("MISSING_CONNECTION", "At least one new tile must touch a tile already on the board", placed, "connect");
   }
 
   const sequences: Sequence[] = [];
@@ -111,7 +111,7 @@ export function analyzePlacement(board: Board, layout: BoardLayout, placed: NewT
       if (s.cells.length >= 2) sequences.push(s);
     }
   }
-  if (sequences.length === 0) return err("NO_EQUATION_FORMED", "This move does not form an equation", placed);
+  if (sequences.length === 0) return err("NO_EQUATION_FORMED", "This move does not form an equation", placed, "noEquation");
   return { ok: true, sequences, direction };
 }
 

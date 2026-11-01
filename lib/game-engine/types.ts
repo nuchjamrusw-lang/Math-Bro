@@ -115,6 +115,8 @@ export interface MoveRecord {
   exchangedCount?: number;
   drawnCount?: number;
   challengeId?: string;
+  /** CHALLENGE records: result of the first check. */
+  firstValid?: boolean;
   timeUsedMs: number;
   timestamp: number;
   scoresAfter: number[];

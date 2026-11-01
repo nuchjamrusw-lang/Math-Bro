@@ -15,10 +15,11 @@ interface AuthCtx {
 
 const Ctx = React.createContext<AuthCtx | null>(null);
 
+/** Returns null on success, otherwise an error code (translated by the caller) or message. */
 async function post(url: string, body?: unknown) {
   const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({}));
-  return r.ok ? null : (j.error as string) ?? "Something went wrong";
+  return r.ok ? null : ((j.code as string) ?? (j.error as string) ?? "GENERIC");
 }
 
 export function AuthProvider({ children, initialUser }: { children: React.ReactNode; initialUser: SessionUser | null }) {

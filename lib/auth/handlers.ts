@@ -7,8 +7,8 @@ export async function withSession(user: SessionUser, body: unknown = { user }) {
   return res;
 }
 
-export function jsonError(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status });
+export function jsonError(message: string, status = 400, code?: string) {
+  return NextResponse.json({ error: message, code }, { status });
 }
 
 export const USERNAME_RE = /^[a-zA-Z0-9_฀-๿]{3,20}$/;

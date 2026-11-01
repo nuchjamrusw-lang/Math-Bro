@@ -11,5 +11,5 @@ export async function POST() {
     const u = await prisma.user.create({ data: { username, isGuest: true, avatarColor: randomAvatarColor() } });
     return withSession({ uid: u.id, username: u.username, guest: true, avatarColor: u.avatarColor });
   }
-  return Response.json({ error: "Could not create a guest, try again" }, { status: 500 });
+  return Response.json({ error: "Could not create a guest, try again", code: "GUEST_FAILED" }, { status: 500 });
 }

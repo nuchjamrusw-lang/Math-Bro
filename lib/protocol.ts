@@ -61,12 +61,18 @@ export type GameAction = z.infer<typeof gameActionSchema>;
 
 export interface ActionEnvelope { action: GameAction; version: number }
 
-export type Ack<T = unknown> = { ok: true; data?: T } | { ok: false; error: string; code?: string; details?: unknown };
+export type Ack<T = unknown> =
+  | { ok: true; data?: T }
+  | { ok: false; error: string; code?: string; key?: string; params?: Record<string, string | number>; details?: unknown };
 
 export interface GameStatePayload { view: GameView }
 
 export interface GameNotice {
   kind: "BINGO" | "CHALLENGE" | "RULING" | "TIMEOUT" | "END" | "INFO" | "PAUSE";
+  /** English fallback text. */
   message: string;
+  /** i18n key under "notice." and its parameters. */
+  key?: string;
+  params?: Record<string, string | number>;
   sideIndex?: number | null;
 }

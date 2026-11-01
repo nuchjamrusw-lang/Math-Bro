@@ -24,6 +24,8 @@ import { ConfirmDialog, DrawDialog, ExchangeDialog, SubmitDialog, SymbolPicker }
 import { useTileDrag, type DragFrom, type DropTarget } from "./use-tile-drag";
 import type { GameController } from "./types";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/client";
+import { ackError } from "@/lib/i18n/format";
 
 interface Placed { tileId: string; row: number; col: number; value?: string }
 
@@ -36,6 +38,7 @@ export function GameView({ controller, header, voice, sidebarExtra, memberMeta }
 }) {
   const { view, mySide, isReferee, act } = controller;
   const toast = useToast();
+  const { t, td } = useI18n();
   const layout = layoutFor(view.rules);
   const now = useServerNow(view.serverNow, view.version);
   const [busy, setBusy] = useState(false);
@@ -83,18 +86,18 @@ export function GameView({ controller, header, voice, sidebarExtra, memberMeta }
     setBusy(true);
     const r = await act(a);
     setBusy(false);
-    if (!r.ok) toast(r.error, "error");
+    if (!r.ok) toast(ackError(td, r), "error");
     else if (okMsg) toast(okMsg, "success");
     return r.ok;
-  }, [act, toast]);
+  }, [act, toast, td]);
 
   /** Touching the rack during the challenge window accepts the opponent's move. */
   const ensureAccepted = useCallback(() => {
     if (pendingByOther && view.pending && acceptedFor.current !== view.pending.moveNumber) {
       acceptedFor.current = view.pending.moveNumber;
-      void run({ type: "accept" }, "Move accepted");
+      void run({ type: "accept" }, t("game.moveAccepted"));
     }
-  }, [pendingByOther, view.pending, run]);
+  }, [pendingByOther, view.pending, run, t]);
 
   const occupied = (r: number, c: number) => !!view.board[r][c] || placed.some((p) => p.row === r && p.col === c);
 
@@ -198,12 +201,12 @@ export function GameView({ controller, header, voice, sidebarExtra, memberMeta }
   };
 
   const statusText = (() => {
-    if (phase === "FINISHED") return { t: "Game over", tone: "neutral" as const };
-    if (phase === "PAUSED") return { t: "Paused", tone: "warning" as const };
-    if (phase === "CHALLENGE_RESULT" || phase === "REFEREE_REVIEW") return { t: "Challenge in progress", tone: "warning" as const };
-    if (phase === "CHALLENGE_WINDOW") return { t: pendingByOther ? "Review the move" : "Opponent reviewing", tone: "warning" as const };
+    if (phase === "FINISHED") return { t: t("game.over"), tone: "neutral" as const };
+    if (phase === "PAUSED") return { t: t("game.paused"), tone: "warning" as const };
+    if (phase === "CHALLENGE_RESULT" || phase === "REFEREE_REVIEW") return { t: t("game.challengeInProgress"), tone: "warning" as const };
+    if (phase === "CHALLENGE_WINDOW") return { t: pendingByOther ? t("game.reviewMove") : t("game.oppReviewing"), tone: "warning" as const };
     if (mySide === null) return { t: `${view.sides[view.turn].name} to play`, tone: "neutral" as const };
-    return view.turn === mySide ? { t: "Your turn", tone: "primary" as const } : { t: `${view.sides[view.turn].name}'s turn`, tone: "neutral" as const };
+    return view.turn === mySide ? { t: t("game.yourTurn"), tone: "primary" as const } : { t: t("game.theirTurn", { name: view.sides[view.turn].name }), tone: "neutral" as const };
   })();
 
   const pauseRequestFromOther = view.pauseRequestedBy !== null && view.pauseRequestedBy !== mySide && mySide !== null;
@@ -217,7 +220,7 @@ export function GameView({ controller, header, voice, sidebarExtra, memberMeta }
             {[0, 1].map((i) => <PlayerCard key={i} view={view} side={i} now={now} isMe={controller.mode === "online" && mySide === i} avatarColor={memberMeta?.[i]?.avatarColor} online={memberMeta?.[i]?.online} />)}
           </div>
           <div className="flex items-center justify-between gap-2 px-1">
-            <Badge tone={statusText.tone} data-testid="game-status">{statusText.t}</Badge>
+            <Badge tone={statusText.tone} data-testid="game-status" data-my-turn={myTurn && phase === "PLAYING" ? "yes" : "no"}>{statusText.t}</Badge>
             <UnseenTilesButton view={view} mySide={mySide} />
           </div>
           <div className="relative mx-auto w-full max-w-[min(100%,calc(100dvh-300px))] min-w-[300px]">
@@ -231,8 +234,8 @@ export function GameView({ controller, header, voice, sidebarExtra, memberMeta }
                 <motion.div initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.1 }}
                   className="pointer-events-none absolute inset-0 grid place-items-center" data-testid="bingo">
                   <div className="rounded-3xl bg-surface/95 px-8 py-5 text-center shadow-[var(--shadow-lift)]">
-                    <p className="text-4xl font-extrabold tracking-tight text-primary">BINGO!</p>
-                    <p className="mt-1 text-sm font-medium text-muted">{bingo} used all 8 tiles · +40</p>
+                    <p className="text-4xl font-extrabold tracking-tight text-primary">{t("game.bingo")}</p>
+                    <p className="mt-1 text-sm font-medium text-muted">{t("game.bingoSub", { name: bingo })}</p>
                   </div>
                 </motion.div>
               )}
@@ -241,8 +244,8 @@ export function GameView({ controller, header, voice, sidebarExtra, memberMeta }
               <div className="absolute inset-0 grid place-items-center rounded-[2.2cqw] bg-surface/80 backdrop-blur-sm">
                 <div className="text-center">
                   <PauseCircle className="mx-auto size-10 text-muted" />
-                  <p className="mt-2 font-semibold">Game paused</p>
-                  {(mySide !== null || isReferee) && <Button className="mt-3" onClick={() => run({ type: "resume" })}><PlayCircle />Resume</Button>}
+                  <p className="mt-2 font-semibold">{t("game.pausedTitle")}</p>
+                  {(mySide !== null || isReferee) && <Button className="mt-3" onClick={() => run({ type: "resume" })}><PlayCircle />{t("game.resume")}</Button>}
                 </div>
               </div>
             )}
@@ -252,32 +255,32 @@ export function GameView({ controller, header, voice, sidebarExtra, memberMeta }
             <div className="flex flex-col items-center gap-3">
               <Rack tiles={rackVisible} slots={view.rules.rackSize} selectedId={selected} onTilePointerDown={(e, id) => begin(e, id, "rack")} />
               <div className="grid w-full max-w-[640px] grid-cols-5 gap-2 sm:grid-cols-[1.4fr_repeat(5,1fr)]">
-                <Button className="col-span-5 sm:col-span-1" size="lg" disabled={!canSubmit} onClick={() => setDialog("submit")} data-testid="submit-move"><Send />Submit</Button>
-                <Button variant="secondary" disabled={!placed.length} onClick={() => recall()} title="Recall all tiles (undo)"><Undo2 /><span className="hidden sm:inline">Undo</span></Button>
-                <Button variant="secondary" onClick={shuffle} title="Shuffle rack"><Shuffle /><span className="hidden sm:inline">Shuffle</span></Button>
-                <Button variant="secondary" disabled={!myTurn || busy} onClick={() => setDialog("pass")}><SkipForward /><span className="hidden sm:inline">Pass</span></Button>
-                <Button variant="secondary" disabled={!myTurn || busy} onClick={() => { ensureAccepted(); setDialog("exchange"); }} title={view.bagCount < view.rules.exchangeMinBag ? `Needs ${view.rules.exchangeMinBag}+ tiles in the bag` : "Exchange tiles"}><Repeat2 /><span className="hidden sm:inline">Exchange</span></Button>
+                <Button className="col-span-5 sm:col-span-1" size="lg" disabled={!canSubmit} onClick={() => setDialog("submit")} data-testid="submit-move"><Send />{t("game.submit")}</Button>
+                <Button variant="secondary" disabled={!placed.length} onClick={() => recall()} title={t("game.undoTitle")} aria-label={t("game.undo")}><Undo2 /><span className="hidden sm:inline">{t("game.undo")}</span></Button>
+                <Button variant="secondary" onClick={shuffle} title={t("game.shuffleTitle")} aria-label={t("game.shuffle")}><Shuffle /><span className="hidden sm:inline">{t("game.shuffle")}</span></Button>
+                <Button variant="secondary" disabled={!myTurn || busy} onClick={() => setDialog("pass")} aria-label={t("game.pass")} data-testid="pass-btn"><SkipForward /><span className="hidden sm:inline">{t("game.pass")}</span></Button>
+                <Button variant="secondary" disabled={!myTurn || busy} onClick={() => { ensureAccepted(); setDialog("exchange"); }} title={view.bagCount < view.rules.exchangeMinBag ? t("game.exchangeNeeds", { n: view.rules.exchangeMinBag }) : t("game.exchange")} aria-label={t("game.exchange")} data-testid="exchange-btn"><Repeat2 /><span className="hidden sm:inline">{t("game.exchange")}</span></Button>
                 {!autoTiles ? (
-                  <Button variant="soft" disabled={rack.length >= view.rules.rackSize || view.bagCount === 0} onClick={() => setDialog("draw")}><Download /><span className="hidden sm:inline">Draw</span></Button>
+                  <Button variant="soft" disabled={rack.length >= view.rules.rackSize || view.bagCount === 0} onClick={() => setDialog("draw")} aria-label={t("game.draw")}><Download /><span className="hidden sm:inline">{t("game.draw")}</span></Button>
                 ) : (
-                  <Button variant="ghost" onClick={() => setDialog("resign")} title="Resign"><Flag /><span className="hidden sm:inline">Resign</span></Button>
+                  <Button variant="ghost" onClick={() => setDialog("resign")} title={t("game.resign")} aria-label={t("game.resign")}><Flag /><span className="hidden sm:inline">{t("game.resign")}</span></Button>
                 )}
               </div>
-              {submitBlockedByValidity && <p className="text-xs font-medium text-error">Strict mode: fix the equation before submitting.</p>}
+              {submitBlockedByValidity && <p className="text-xs font-medium text-error">{t("game.strictFix")}</p>}
               <div className="flex flex-wrap items-center justify-center gap-2">
                 {voice}
                 {view.rules.time.allowPause && (phase === "PLAYING" || phase === "CHALLENGE_WINDOW") && (
-                  <Button variant="ghost" size="sm" disabled={view.pauseRequestedBy === mySide} onClick={() => run({ type: "pauseRequest" }, "Pause requested")}><PauseCircle />{view.pauseRequestedBy === mySide ? "Pause requested" : "Request pause"}</Button>
+                  <Button variant="ghost" size="sm" disabled={view.pauseRequestedBy === mySide} onClick={() => run({ type: "pauseRequest" }, t("game.pauseRequested"))}><PauseCircle />{view.pauseRequestedBy === mySide ? t("game.pauseRequested") : t("game.requestPause")}</Button>
                 )}
-                {!autoTiles && <Button variant="ghost" size="sm" onClick={() => setDialog("resign")}><Flag />Resign</Button>}
+                {!autoTiles && <Button variant="ghost" size="sm" onClick={() => setDialog("resign")}><Flag />{t("game.resign")}</Button>}
               </div>
             </div>
           )}
           {mySide === null && phase !== "FINISHED" && (
             <div className="flex flex-col items-center gap-2">
-              <p className="text-sm text-muted">{isReferee ? "You are the referee." : "You are spectating."} Racks are hidden.</p>
+              <p className="text-sm text-muted">{isReferee ? t("game.refereeing") : t("game.spectating")}</p>
               {voice}
-              {isReferee && view.rules.time.allowPause && phase === "PLAYING" && <Button variant="secondary" size="sm" onClick={() => run({ type: "pause" })}><PauseCircle />Pause game</Button>}
+              {isReferee && view.rules.time.allowPause && phase === "PLAYING" && <Button variant="secondary" size="sm" onClick={() => run({ type: "pause" })}><PauseCircle />{t("game.pauseGame")}</Button>}
             </div>
           )}
         </section>
@@ -285,10 +288,10 @@ export function GameView({ controller, header, voice, sidebarExtra, memberMeta }
         <aside className="flex min-w-0 flex-col gap-3 lg:max-h-[calc(100dvh-90px)] lg:sticky lg:top-3">
           {pauseRequestFromOther && (
             <div className="rounded-2xl border border-line bg-surface p-4 text-sm">
-              <p className="font-semibold">{view.sides[view.pauseRequestedBy!].name} asks to pause the game</p>
+              <p className="font-semibold">{t("game.pauseAsk", { name: view.sides[view.pauseRequestedBy!].name })}</p>
               <div className="mt-3 flex gap-2">
-                <Button size="sm" onClick={() => run({ type: "pauseRespond", accept: true })}>Accept</Button>
-                <Button size="sm" variant="secondary" onClick={() => run({ type: "pauseRespond", accept: false })}>Decline</Button>
+                <Button size="sm" onClick={() => run({ type: "pauseRespond", accept: true })}>{t("game.accept")}</Button>
+                <Button size="sm" variant="secondary" onClick={() => run({ type: "pauseRespond", accept: false })}>{t("game.decline")}</Button>
               </div>
             </div>
           )}
@@ -315,10 +318,10 @@ export function GameView({ controller, header, voice, sidebarExtra, memberMeta }
         onPick={(v) => { const p = picker!; setPlaced((ps) => [...ps.filter((x) => x.tileId !== p.tileId), { ...p, value: v }]); setPicker(null); }}
       />
       <SubmitDialog open={dialog === "submit"} onOpenChange={(o) => setDialog(o ? "submit" : null)} preview={preview} autoScore={autoScore} challengeMode={challengeMode} onConfirm={submit} />
-      <ConfirmDialog open={dialog === "pass"} onOpenChange={(o) => setDialog(o ? "pass" : null)} title="Pass this turn?" description={`You score nothing this turn. The game ends after ${view.rules.endGame.consecutivePassesToEnd} consecutive passes (currently ${view.consecutivePasses}).`} confirmLabel="Pass" onConfirm={() => { recall(); void run({ type: "pass" }); }} />
-      <ConfirmDialog open={dialog === "resign"} onOpenChange={(o) => setDialog(o ? "resign" : null)} title="Resign the game?" description="Your opponent will be declared the winner." confirmLabel="Resign" tone="danger" onConfirm={() => void run({ type: "resign" })} />
+      <ConfirmDialog open={dialog === "pass"} onOpenChange={(o) => setDialog(o ? "pass" : null)} title={t("game.passTitle")} description={t("game.passDesc", { n: view.rules.endGame.consecutivePassesToEnd, c: view.consecutivePasses })} confirmLabel={t("game.pass")} onConfirm={() => { recall(); void run({ type: "pass" }); }} />
+      <ConfirmDialog open={dialog === "resign"} onOpenChange={(o) => setDialog(o ? "resign" : null)} title={t("game.resignTitle")} description={t("game.resignDesc")} confirmLabel={t("game.resign")} tone="danger" onConfirm={() => void run({ type: "resign" })} />
       <ExchangeDialog open={dialog === "exchange"} onOpenChange={(o) => setDialog(o ? "exchange" : null)} rack={rack} bagCount={view.bagCount} minBag={view.rules.exchangeMinBag}
-        onConfirm={(ids) => { setDialog(null); recall(); void run({ type: "exchange", tileIds: ids }, "Tiles exchanged"); }} />
+        onConfirm={(ids) => { setDialog(null); recall(); void run({ type: "exchange", tileIds: ids }, t("game.exchanged")); }} />
       <DrawDialog open={dialog === "draw"} onOpenChange={(o) => setDialog(o ? "draw" : null)} max={view.rules.rackSize - rack.length} bagCount={view.bagCount}
         onConfirm={(n) => { setDialog(null); void run({ type: "draw", count: n }); }} />
     </div>

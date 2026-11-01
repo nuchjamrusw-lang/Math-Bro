@@ -25,9 +25,11 @@ export type Token =
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ValidationError };
 
-const fail = (code: ValidationError["code"], message: string, index?: number): { ok: false; error: ValidationError } => ({
+const fail = (
+  code: ValidationError["code"], message: string, index?: number, reason?: string, params?: Record<string, string | number>,
+): { ok: false; error: ValidationError } => ({
   ok: false,
-  error: { code, message, index },
+  error: { code, message, index, reason, params },
 });
 
 export function tokenize(symbols: string[], rules: MathRules = DEFAULT_RULES.math): Result<Token[]> {
@@ -40,14 +42,14 @@ export function tokenize(symbols: string[], rules: MathRules = DEFAULT_RULES.mat
       while (j < symbols.length && isDigitSymbol(symbols[j])) j++;
       // A 10–20 tile directly next to this run would form an illegal number.
       if (!rules.allowJoiningTwoDigitTiles && j < symbols.length && isNumberSymbol(symbols[j])) {
-        return fail("INVALID_NUMBER_FORMATION", `Tile ${symbols[j]} cannot be joined with other numbers`, j);
+        return fail("INVALID_NUMBER_FORMATION", `Tile ${symbols[j]} cannot be joined with other numbers`, j, "joinTwoDigit", { tile: symbols[j] });
       }
       const run = symbols.slice(i, j);
       if (run.length > rules.maxDigitsPerNumber) {
-        return fail("INVALID_NUMBER_FORMATION", `Numbers may have at most ${rules.maxDigitsPerNumber} digits (got ${run.join("")})`, i);
+        return fail("INVALID_NUMBER_FORMATION", `Numbers may have at most ${rules.maxDigitsPerNumber} digits (got ${run.join("")})`, i, "maxDigits", { max: rules.maxDigitsPerNumber, num: run.join("") });
       }
       if (run.length > 1 && run[0] === "0") {
-        return fail("INVALID_NUMBER_FORMATION", `A number cannot start with 0 (${run.join("")})`, i);
+        return fail("INVALID_NUMBER_FORMATION", `A number cannot start with 0 (${run.join("")})`, i, "leadingZero", { num: run.join("") });
       }
       const text = run.join("");
       tokens.push({ type: "num", value: Number(text), text, start: i, end: j - 1 });
@@ -56,7 +58,7 @@ export function tokenize(symbols: string[], rules: MathRules = DEFAULT_RULES.mat
       // two-digit tile 10..20
       const next = symbols[i + 1];
       if (!rules.allowJoiningTwoDigitTiles && next !== undefined && isNumberSymbol(next)) {
-        return fail("INVALID_NUMBER_FORMATION", `Tile ${s} cannot be joined with other numbers`, i);
+        return fail("INVALID_NUMBER_FORMATION", `Tile ${s} cannot be joined with other numbers`, i, "joinTwoDigit", { tile: s });
       }
       tokens.push({ type: "num", value: Number(s), text: s, start: i, end: i });
       i++;
@@ -67,7 +69,7 @@ export function tokenize(symbols: string[], rules: MathRules = DEFAULT_RULES.mat
       tokens.push({ type: "eq", start: i, end: i });
       i++;
     } else {
-      return fail("INVALID_OPERATOR_PLACEMENT", `Unknown symbol '${s}'`, i);
+      return fail("INVALID_OPERATOR_PLACEMENT", `Unknown symbol '${s}'`, i, "unknownSymbol", { sym: s });
     }
   }
   return { ok: true, value: tokens };
@@ -75,7 +77,7 @@ export function tokenize(symbols: string[], rules: MathRules = DEFAULT_RULES.mat
 
 /** Evaluate one side of an equation (no '='). */
 export function evaluateSide(tokens: Token[], rules: MathRules = DEFAULT_RULES.math): Result<Fraction> {
-  if (tokens.length === 0) return fail("INVALID_OPERATOR_PLACEMENT", "Each side of '=' must contain an expression");
+  if (tokens.length === 0) return fail("INVALID_OPERATOR_PLACEMENT", "Each side of '=' must contain an expression", undefined, "emptySide");
   let pos = 0;
   let negateFirst = false;
   const first = tokens[0];
@@ -83,15 +85,15 @@ export function evaluateSide(tokens: Token[], rules: MathRules = DEFAULT_RULES.m
     if (first.op === "-" && rules.allowUnaryMinus) {
       const next = tokens[1];
       if (!next || next.type !== "num") {
-        return fail("INVALID_OPERATOR_PLACEMENT", "A minus sign must be followed by a number", first.start);
+        return fail("INVALID_OPERATOR_PLACEMENT", "A minus sign must be followed by a number", first.start, "minusNoNumber");
       }
-      if (next.value === 0) return fail("INVALID_NUMBER_FORMATION", "A sign cannot be placed in front of 0", first.start);
+      if (next.value === 0) return fail("INVALID_NUMBER_FORMATION", "A sign cannot be placed in front of 0", first.start, "signBeforeZero");
       negateFirst = true;
       pos = 1;
     } else if (first.op === "+") {
-      return fail("INVALID_OPERATOR_PLACEMENT", "A plus sign cannot be placed in front of a number", first.start);
+      return fail("INVALID_OPERATOR_PLACEMENT", "A plus sign cannot be placed in front of a number", first.start, "plusPrefix");
     } else {
-      return fail("INVALID_OPERATOR_PLACEMENT", `An expression cannot start with '${first.op}'`, first.start);
+      return fail("INVALID_OPERATOR_PLACEMENT", `An expression cannot start with '${first.op}'`, first.start, "startsWithOp", { op: first.op });
     }
   }
 
@@ -103,21 +105,21 @@ export function evaluateSide(tokens: Token[], rules: MathRules = DEFAULT_RULES.m
     const t = tokens[pos];
     if (expectNum) {
       if (t.type !== "num") {
-        return fail("INVALID_OPERATOR_PLACEMENT", "Two operators cannot be placed next to each other", t.start);
+        return fail("INVALID_OPERATOR_PLACEMENT", "Two operators cannot be placed next to each other", t.start, "adjacentOps");
       }
       let v = Fraction.of(t.value);
       if (negateFirst && nums.length === 0) v = v.neg();
       nums.push(v);
       expectNum = false;
     } else {
-      if (t.type !== "op") return fail("INVALID_OPERATOR_PLACEMENT", "Unexpected token", t.start);
+      if (t.type !== "op") return fail("INVALID_OPERATOR_PLACEMENT", "Unexpected token", t.start, "unexpected");
       ops.push(t.op);
       expectNum = true;
     }
   }
   if (expectNum) {
     const last = tokens[tokens.length - 1];
-    return fail("INVALID_OPERATOR_PLACEMENT", "An expression cannot end with an operator", last.end);
+    return fail("INVALID_OPERATOR_PLACEMENT", "An expression cannot end with an operator", last.end, "endsWithOp");
   }
 
   // Pass 1: × and ÷ left-to-right.
@@ -130,7 +132,7 @@ export function evaluateSide(tokens: Token[], rules: MathRules = DEFAULT_RULES.m
     else if (op === "÷") {
       if (rhs.isZero()) {
         const tok = tokens.filter((t) => t.type === "op")[k];
-        return fail("DIVISION_BY_ZERO", "Division by zero is not allowed", tok?.start);
+        return fail("DIVISION_BY_ZERO", "Division by zero is not allowed", tok?.start, "divZero");
       }
       terms[terms.length - 1] = terms[terms.length - 1].div(rhs);
     } else {
@@ -148,7 +150,7 @@ export function evaluateSide(tokens: Token[], rules: MathRules = DEFAULT_RULES.m
 export function evaluateExpression(symbols: string[], rules: MathRules = DEFAULT_RULES.math): Result<Fraction> {
   const t = tokenize(symbols, rules);
   if (!t.ok) return t;
-  if (t.value.some((x) => x.type === "eq")) return fail("INVALID_OPERATOR_PLACEMENT", "Expression must not contain '='");
+  if (t.value.some((x) => x.type === "eq")) return fail("INVALID_OPERATOR_PLACEMENT", "Expression must not contain '='", undefined, "unexpected");
   return evaluateSide(t.value, rules);
 }
 
@@ -177,10 +179,10 @@ export function validateEquation(symbols: string[], rules: MathRules = DEFAULT_R
   const tokens = t.value;
   const eqCount = tokens.filter((x) => x.type === "eq").length;
   if (eqCount === 0) {
-    return { valid: false, text, sideValues: [], error: { code: "MISSING_EQUALS", message: "An equation needs at least one '=' sign" } };
+    return { valid: false, text, sideValues: [], error: { code: "MISSING_EQUALS", message: "An equation needs at least one '=' sign", reason: "missingEquals" } };
   }
   if (eqCount > 1 && !rules.allowMultipleEquals) {
-    return { valid: false, text, sideValues: [], error: { code: "INVALID_OPERATOR_PLACEMENT", message: "Only one '=' is allowed" } };
+    return { valid: false, text, sideValues: [], error: { code: "INVALID_OPERATOR_PLACEMENT", message: "Only one '=' is allowed", reason: "oneEquals" } };
   }
   const sides: Token[][] = [[]];
   for (const tok of tokens) {
@@ -190,7 +192,7 @@ export function validateEquation(symbols: string[], rules: MathRules = DEFAULT_R
   const values: Fraction[] = [];
   for (const side of sides) {
     if (side.length === 0) {
-      return { valid: false, text, sideValues: [], error: { code: "INVALID_OPERATOR_PLACEMENT", message: "'=' must have an expression on both sides" } };
+      return { valid: false, text, sideValues: [], error: { code: "INVALID_OPERATOR_PLACEMENT", message: "'=' must have an expression on both sides", reason: "equalsSides" } };
     }
     const r = evaluateSide(side, rules);
     if (!r.ok) return { valid: false, text, sideValues: values.map(String), error: r.error };
@@ -201,7 +203,7 @@ export function validateEquation(symbols: string[], rules: MathRules = DEFAULT_R
   if (!allEqual) {
     return {
       valid: false, text, sideValues,
-      error: { code: "INCORRECT_EQUATION", message: `Sides are not equal (${sideValues.join(" ≠ ")})` },
+      error: { code: "INCORRECT_EQUATION", message: `Sides are not equal (${sideValues.join(" ≠ ")})`, reason: "notEqual", params: { values: sideValues.join(" ≠ ") } },
     };
   }
   return { valid: true, text, sideValues };

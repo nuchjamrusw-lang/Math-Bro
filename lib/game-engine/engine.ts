@@ -19,7 +19,11 @@ import {
 } from "../timer-engine";
 
 export class GameError extends Error {
-  constructor(public code: string, message: string, public errors: ValidationError[] = []) {
+  /** `key`: i18n key under "err." (defaults to `code`). */
+  constructor(
+    public code: string, message: string, public errors: ValidationError[] = [],
+    public key: string = code, public params?: Record<string, string | number>,
+  ) {
     super(message);
     this.name = "GameError";
   }
@@ -173,7 +177,7 @@ export class GameEngine {
 
   start(now: number): void {
     const s = this.state;
-    if (s.phase !== "WAITING") throw new GameError("BAD_PHASE", "Game already started");
+    if (s.phase !== "WAITING") throw new GameError("BAD_PHASE", "Game already started", [], "ALREADY_STARTED");
     const fixed = (s as GameState & { _fixedFirst?: number })._fixedFirst;
     let starter: number;
     if (fixed !== undefined) {
@@ -207,9 +211,9 @@ export class GameEngine {
 
   private assertActive() {
     const p = this.state.phase;
-    if (p === "WAITING") throw new GameError("BAD_PHASE", "The game has not started");
-    if (p === "FINISHED") throw new GameError("BAD_PHASE", "The game is over");
-    if (p === "PAUSED") throw new GameError("BAD_PHASE", "The game is paused");
+    if (p === "WAITING") throw new GameError("BAD_PHASE", "The game has not started", [], "NOT_STARTED");
+    if (p === "FINISHED") throw new GameError("BAD_PHASE", "The game is over", [], "GAME_OVER");
+    if (p === "PAUSED") throw new GameError("BAD_PHASE", "The game is paused", [], "PAUSED");
   }
 
   private assertTurn(side: number) {
@@ -220,11 +224,11 @@ export class GameEngine {
   private implicitAccept(side: number, now: number) {
     const s = this.state;
     if (s.phase === "CHALLENGE_WINDOW") {
-      if (!s.pending || s.pending.sideIndex === side) throw new GameError("BAD_PHASE", "Waiting for the opponent to review your move");
+      if (!s.pending || s.pending.sideIndex === side) throw new GameError("BAD_PHASE", "Waiting for the opponent to review your move", [], "AWAIT_REVIEW");
       this.commitPending(now, false);
     }
     if (s.phase === "CHALLENGE_RESULT" || s.phase === "REFEREE_REVIEW") {
-      throw new GameError("BAD_PHASE", "A challenge is being resolved");
+      throw new GameError("BAD_PHASE", "A challenge is being resolved", [], "CHALLENGE_IN_PROGRESS");
     }
   }
 
@@ -232,7 +236,7 @@ export class GameEngine {
     const rack = this.state.sides[side].rack;
     const used = new Set<string>();
     if (!Array.isArray(placements) || placements.length === 0) throw new GameError("EMPTY_MOVE", "Place at least one tile");
-    if (placements.length > this.rules.rackSize) throw new GameError("BAD_MOVE", "Too many tiles");
+    if (placements.length > this.rules.rackSize) throw new GameError("BAD_MOVE", "Too many tiles", [], "BAD_MOVE");
     return placements.map((p) => {
       if (!Number.isInteger(p.row) || !Number.isInteger(p.col)) throw new GameError("BAD_MOVE", "Invalid coordinates");
       if (used.has(p.tileId)) throw new GameError("BAD_MOVE", "The same tile was used twice");
@@ -245,8 +249,8 @@ export class GameEngine {
       else {
         if (!p.value || !def.options.includes(p.value) || !ALL_SYMBOLS.includes(p.value)) {
           throw new GameError("UNASSIGNED_TILE", `Choose a value for the ${tile.face} tile before playing`, [
-            { code: "UNASSIGNED_TILE", message: `Choose a value for the ${tile.face} tile`, cells: [{ row: p.row, col: p.col }] },
-          ]);
+            { code: "UNASSIGNED_TILE", message: `Choose a value for the ${tile.face} tile`, cells: [{ row: p.row, col: p.col }], reason: "unassigned", params: { face: tile.face } },
+          ], "UNASSIGNED_TILE", { face: tile.face });
         }
         value = p.value;
       }
@@ -296,7 +300,7 @@ export class GameEngine {
     this.assertActive();
     this.assertTurn(side);
     this.implicitAccept(side, now);
-    if (s.phase !== "PLAYING") throw new GameError("BAD_PHASE", "You cannot play right now");
+    if (s.phase !== "PLAYING") throw new GameError("BAD_PHASE", "You cannot play right now", [], "CANNOT_PLAY_NOW");
 
     const resolved = this.resolvePlacements(side, placements);
     const { analysis, equations, score } = this.evaluate(s.board, resolved, side);
@@ -398,8 +402,8 @@ export class GameEngine {
 
   accept(side: number, now: number): void {
     const s = this.state;
-    if (s.phase !== "CHALLENGE_WINDOW" || !s.pending) throw new GameError("BAD_PHASE", "There is no move to accept");
-    if (s.pending.sideIndex === side) throw new GameError("BAD_PHASE", "You cannot accept your own move");
+    if (s.phase !== "CHALLENGE_WINDOW" || !s.pending) throw new GameError("BAD_PHASE", "There is no move to accept", [], "NO_PENDING");
+    if (s.pending.sideIndex === side) throw new GameError("BAD_PHASE", "You cannot accept your own move", [], "OWN_MOVE");
     this.commitPending(now, false);
     this.bump();
   }
@@ -419,8 +423,8 @@ export class GameEngine {
 
   challenge(side: number, playerId: string, now: number): ChallengeRecord {
     const s = this.state;
-    if (s.phase !== "CHALLENGE_WINDOW" || !s.pending) throw new GameError("BAD_PHASE", "There is no move to challenge");
-    if (s.pending.sideIndex === side) throw new GameError("BAD_PHASE", "You cannot challenge your own move");
+    if (s.phase !== "CHALLENGE_WINDOW" || !s.pending) throw new GameError("BAD_PHASE", "There is no move to challenge", [], "NO_PENDING");
+    if (s.pending.sideIndex === side) throw new GameError("BAD_PHASE", "You cannot challenge your own move", [], "OWN_MOVE");
     stopClock(s.clock, now);
     const first = this.checkPending("SYSTEM", now);
     const rec: ChallengeRecord = {
@@ -436,7 +440,7 @@ export class GameEngine {
     };
     s.challenge = rec;
     this.record("CHALLENGE", now, {
-      sideIndex: side, playerId, challengeId: rec.id, equations: rec.equations,
+      sideIndex: side, playerId, challengeId: rec.id, equations: rec.equations, firstValid: first.valid,
       note: first.valid ? "First check: equation is VALID" : "First check: equation is INVALID",
     });
     if (s.rules.challenge.rechallengeEnabled) {
@@ -457,8 +461,8 @@ export class GameEngine {
   rechallenge(side: number, playerId: string, now: number): void {
     const s = this.state;
     const rec = s.challenge;
-    if (s.phase !== "CHALLENGE_RESULT" || !rec) throw new GameError("BAD_PHASE", "No challenge result to dispute");
-    if (this.challengeLoser(rec) !== side) throw new GameError("BAD_PHASE", "Only the side that lost the challenge may re-challenge");
+    if (s.phase !== "CHALLENGE_RESULT" || !rec) throw new GameError("BAD_PHASE", "No challenge result to dispute", [], "NO_RULING");
+    if (this.challengeLoser(rec) !== side) throw new GameError("BAD_PHASE", "Only the side that lost the challenge may re-challenge", [], "NOT_LOSER");
     rec.rechallenge = { requestedBy: playerId, requestedSide: side, requestedAt: now };
     this.record("RECHALLENGE", now, { sideIndex: side, playerId, challengeId: rec.id, equations: rec.equations });
     if (s.hasReferee) {
@@ -473,8 +477,8 @@ export class GameEngine {
   acceptChallengeResult(side: number, now: number): void {
     const s = this.state;
     const rec = s.challenge;
-    if (s.phase !== "CHALLENGE_RESULT" || !rec) throw new GameError("BAD_PHASE", "No challenge result pending");
-    if (this.challengeLoser(rec) !== side) throw new GameError("BAD_PHASE", "Waiting for the other side");
+    if (s.phase !== "CHALLENGE_RESULT" || !rec) throw new GameError("BAD_PHASE", "No challenge result pending", [], "NO_RULING");
+    if (this.challengeLoser(rec) !== side) throw new GameError("BAD_PHASE", "Waiting for the other side", [], "NOT_LOSER");
     this.finalizeChallenge(rec.first.valid, now);
     this.bump();
   }
@@ -482,7 +486,7 @@ export class GameEngine {
   refereeRule(refereeId: string, valid: boolean, now: number): void {
     const s = this.state;
     const rec = s.challenge;
-    if (s.phase !== "REFEREE_REVIEW" || !rec) throw new GameError("BAD_PHASE", "Nothing awaiting a referee ruling");
+    if (s.phase !== "REFEREE_REVIEW" || !rec) throw new GameError("BAD_PHASE", "Nothing awaiting a referee ruling", [], "NO_REFEREE_REVIEW");
     rec.second = this.checkPending("REFEREE", now, refereeId, valid);
     this.finalizeChallenge(valid, now);
     this.bump();
@@ -542,10 +546,10 @@ export class GameEngine {
     return false;
   }
 
-  canExchange(side: number): { ok: boolean; reason?: string } {
+  canExchange(side: number): { ok: boolean; reason?: string; key?: string } {
     const s = this.state;
-    if (s.bag.length < s.rules.exchangeMinBag) return { ok: false, reason: `Exchange needs at least ${s.rules.exchangeMinBag} tiles in the bag` };
-    if (s.sides[side].rack.length === 0) return { ok: false, reason: "Your rack is empty" };
+    if (s.bag.length < s.rules.exchangeMinBag) return { ok: false, reason: `Exchange needs at least ${s.rules.exchangeMinBag} tiles in the bag`, key: "EXCHANGE_BAG_LOW" };
+    if (s.sides[side].rack.length === 0) return { ok: false, reason: "Your rack is empty", key: "EXCHANGE_RACK_EMPTY" };
     return { ok: true };
   }
 
@@ -554,12 +558,12 @@ export class GameEngine {
     this.assertActive();
     this.assertTurn(side);
     const can = this.canExchange(side);
-    if (!can.ok) throw new GameError("EXCHANGE_NOT_ALLOWED", can.reason!);
+    if (!can.ok) throw new GameError("EXCHANGE_NOT_ALLOWED", can.reason!, [], can.key, { min: s.rules.exchangeMinBag });
     const ids = [...new Set(tileIds)];
-    if (ids.length < 1 || ids.length > s.rules.rackSize) throw new GameError("BAD_EXCHANGE", `Exchange 1–${s.rules.rackSize} tiles`);
+    if (ids.length < 1 || ids.length > s.rules.rackSize) throw new GameError("BAD_EXCHANGE", `Exchange 1–${s.rules.rackSize} tiles`, [], "BAD_EXCHANGE", { max: s.rules.rackSize });
     const rack = s.sides[side].rack;
     if (!ids.every((id) => rack.some((t) => t.id === id))) throw new GameError("TILE_NOT_IN_RACK", "That tile is not on your rack");
-    if (ids.length > s.bag.length) throw new GameError("BAD_EXCHANGE", "Not enough tiles in the bag");
+    if (ids.length > s.bag.length) throw new GameError("BAD_EXCHANGE", "Not enough tiles in the bag", [], "EXCHANGE_TOO_MANY");
     this.implicitAccept(side, now);
     if (s.phase !== "PLAYING") return;
     // 1) remove from rack  2) draw the same number  3) return old tiles and reshuffle
@@ -579,10 +583,10 @@ export class GameEngine {
   drawManual(side: number, playerId: string, count: number, now: number): void {
     const s = this.state;
     this.assertActive();
-    if (isAutoTiles(s.rules)) throw new GameError("NOT_ALLOWED", "Tiles are drawn automatically in this mode");
+    if (isAutoTiles(s.rules)) throw new GameError("NOT_ALLOWED", "Tiles are drawn automatically in this mode", [], "AUTO_TILES");
     const rack = s.sides[side].rack;
     const max = s.rules.rackSize - rack.length;
-    if (!Number.isInteger(count) || count < 1 || count > max) throw new GameError("BAD_DRAW", `You can draw 1–${max} tiles`);
+    if (!Number.isInteger(count) || count < 1 || count > max) throw new GameError("BAD_DRAW", `You can draw 1–${max} tiles`, [], "BAD_DRAW", { max });
     if (s.bag.length === 0) throw new GameError("BAG_EMPTY", "The bag is empty");
     const t = drawTiles(s.bag, count);
     rack.push(...t);
@@ -601,15 +605,15 @@ export class GameEngine {
 
   requestPause(side: number): void {
     const s = this.state;
-    if (!s.rules.time.allowPause) throw new GameError("NOT_ALLOWED", "Pausing is disabled for this game");
-    if (s.phase !== "PLAYING" && s.phase !== "CHALLENGE_WINDOW") throw new GameError("BAD_PHASE", "Cannot pause now");
+    if (!s.rules.time.allowPause) throw new GameError("NOT_ALLOWED", "Pausing is disabled for this game", [], "PAUSE_DISABLED");
+    if (s.phase !== "PLAYING" && s.phase !== "CHALLENGE_WINDOW") throw new GameError("BAD_PHASE", "Cannot pause now", [], "CANNOT_PAUSE");
     s.pauseRequestedBy = side;
     this.bump();
   }
 
   respondPause(side: number, acceptIt: boolean, now: number): void {
     const s = this.state;
-    if (s.pauseRequestedBy === null || s.pauseRequestedBy === side) throw new GameError("BAD_PHASE", "No pause request to answer");
+    if (s.pauseRequestedBy === null || s.pauseRequestedBy === side) throw new GameError("BAD_PHASE", "No pause request to answer", [], "NO_PAUSE_REQUEST");
     s.pauseRequestedBy = null;
     if (acceptIt) this.pause(now);
     else this.bump();
@@ -617,7 +621,7 @@ export class GameEngine {
 
   pause(now: number): void {
     const s = this.state;
-    if (s.phase !== "PLAYING" && s.phase !== "CHALLENGE_WINDOW") throw new GameError("BAD_PHASE", "Cannot pause now");
+    if (s.phase !== "PLAYING" && s.phase !== "CHALLENGE_WINDOW") throw new GameError("BAD_PHASE", "Cannot pause now", [], "CANNOT_PAUSE");
     s.phaseBeforePause = s.phase;
     pauseClock(s.clock, now);
     s.phase = "PAUSED";
@@ -628,7 +632,7 @@ export class GameEngine {
 
   resume(now: number): void {
     const s = this.state;
-    if (s.phase !== "PAUSED") throw new GameError("BAD_PHASE", "The game is not paused");
+    if (s.phase !== "PAUSED") throw new GameError("BAD_PHASE", "The game is not paused", [], "NOT_PAUSED");
     s.phase = s.phaseBeforePause ?? "PLAYING";
     s.phaseBeforePause = null;
     startClock(s.clock, s.turn, now);

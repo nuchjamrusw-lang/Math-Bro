@@ -8,6 +8,8 @@ import { io, type Socket } from "socket.io-client";
 
 export interface VoicePeerState { socketId: string; userId: string; username: string; muted: boolean; speaking: boolean; connection: RTCPeerConnectionState | "new" }
 export type VoiceStatus = "off" | "requesting" | "connecting" | "connected" | "error" | "disabled";
+/** Error as an i18n key (under "voice.") plus params, translated by the UI. */
+export interface VoiceError { key: "errDenied" | "errUnsupported" | "errUnavailable" | "errServer" | "errJoin"; msg?: string }
 
 function iceServers(): RTCIceServer[] {
   try {
@@ -19,7 +21,7 @@ function iceServers(): RTCIceServer[] {
 
 export function useVoiceChat(code: string, enabled: boolean) {
   const [status, setStatus] = useState<VoiceStatus>(enabled ? "off" : "disabled");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<VoiceError | null>(null);
   const [muted, setMuted] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [peers, setPeers] = useState<Record<string, VoicePeerState>>({});
@@ -78,11 +80,15 @@ export function useVoiceChat(code: string, enabled: boolean) {
     setError(null);
     setStatus("requesting");
     try {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error("This browser does not support microphone access");
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setStatus("error");
+        setError({ key: "errUnsupported" });
+        return;
+      }
       stream.current = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
     } catch (e) {
       setStatus("error");
-      setError((e as Error).name === "NotAllowedError" ? "Microphone permission denied — the game continues without voice." : `Microphone unavailable: ${(e as Error).message}`);
+      setError((e as Error).name === "NotAllowedError" ? { key: "errDenied" } : { key: "errUnavailable", msg: (e as Error).message });
       return;
     }
     setStatus("connecting");
@@ -110,10 +116,10 @@ export function useVoiceChat(code: string, enabled: boolean) {
 
     const s = io("/voice", { path: "/socket.io", withCredentials: true, transports: ["websocket", "polling"] });
     sock.current = s;
-    s.on("connect_error", () => { setStatus("error"); setError("Could not reach the voice server. The game is not affected."); });
+    s.on("connect_error", () => { setStatus("error"); setError({ key: "errServer" }); });
     s.on("connect", () => {
       s.emit("voice:join", { code, muted }, async (r: { ok: boolean; error?: string; peers?: Omit<VoicePeerState, "connection">[] }) => {
-        if (!r.ok) { setStatus("error"); setError(r.error ?? "Voice chat unavailable"); return; }
+        if (!r.ok) { setStatus("error"); setError({ key: "errJoin" }); return; }
         setStatus("connected");
         // We are the newcomer: call everyone already in the channel.
         for (const p of r.peers ?? []) {

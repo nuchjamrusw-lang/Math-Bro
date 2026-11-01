@@ -21,7 +21,7 @@ const status = (p: Page) => p.getByTestId("game-status").innerText();
 const log = (...a: unknown[]) => console.log("•", ...a);
 
 async function rack(p: Page): Promise<RackTile[]> {
-  return p.$$eval("[aria-label='Your rack'] [data-tile-id]", (els) =>
+  return p.$$eval("[data-testid='rack'] [data-tile-id]", (els) =>
     els.map((e) => ({ id: (e as HTMLElement).dataset.tileId!, face: (e.querySelector("[data-face]") as HTMLElement).dataset.face as never })));
 }
 
@@ -41,8 +41,8 @@ async function waitStatus(p: Page, text: string) {
 
 async function main() {
   const browser = await pw.chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
-  const ctxA = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ["microphone"] });
-  const ctxB = await browser.newContext({ viewport: { width: 1180, height: 820 }, permissions: ["microphone"] });
+  const ctxA = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "en-US", permissions: ["microphone"] });
+  const ctxB = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: "en-US", permissions: ["microphone"] });
   const a = await ctxA.newPage();
   const b = await ctxB.newPage();
   for (const p of [a, b]) p.on("pageerror", (e) => console.error("PAGE ERROR:", e.message));
@@ -73,12 +73,12 @@ async function main() {
   await shot(first, "04-game-start");
 
   // Voice chat: both join, a WebRTC peer connection must reach "connected".
-  await a.getByRole("button", { name: "Join voice" }).click();
-  await b.getByRole("button", { name: "Join voice" }).click();
+  await a.getByTestId("join-voice").click();
+  await b.getByTestId("join-voice").click();
   await a.waitForSelector("[data-testid='voice-chat'] span[title='connected']", { timeout: 15000 });
   await b.waitForSelector("[data-testid='voice-chat'] span[title='connected']", { timeout: 15000 });
   log("voice chat: peers connected over WebRTC");
-  await b.getByRole("button", { name: "Mute" }).click();
+  await b.getByTestId("mute-btn").click();
   await a.waitForSelector("[data-testid='voice-chat'] span[title='connected'] svg.lucide-mic-off", { timeout: 5000 });
   log("voice chat: mute status propagated");
 
@@ -159,7 +159,7 @@ async function main() {
   log("replay viewer works");
 
   // Mobile layout check
-  const m = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const m = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: "th-TH" });
   const mp = await m.newPage();
   await mp.goto(`${BASE}/practice`);
   await mp.getByTestId("start-practice").click();

@@ -22,7 +22,7 @@ export function DialogContent({ className, children, hideClose, ...p }: React.Co
       >
         {children}
         {!hideClose && (
-          <D.Close className="absolute right-4 top-4 rounded-lg p-1 text-muted transition hover:bg-[#eef0f4] hover:text-ink cursor-pointer" aria-label="Close">
+          <D.Close className="absolute right-4 top-4 rounded-lg p-1 text-muted transition hover:bg-[#eef0f4] hover:text-ink cursor-pointer" aria-label="Close ✕">
             <X className="size-4" />
           </D.Close>
         )}
