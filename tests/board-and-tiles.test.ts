@@ -17,7 +17,8 @@ describe("board layout", () => {
   it("premium squares are fixed data with the expected counts", () => {
     const count = (t: string) => STANDARD_LAYOUT.cells.flat().filter((x) => x === t).length;
     expect(count("TE")).toBe(8);
-    expect(count("DE")).toBe(16);
+    expect(count("DE")).toBe(12);
+    expect(STANDARD_LAYOUT.cells[4][4]).toBe("NORMAL"); // diagonal is 3 squares per corner
     expect(count("TP")).toBe(12);
     expect(count("DP")).toBe(24);
     expect(STANDARD_LAYOUT.cells[0][0]).toBe("TE");
