@@ -150,3 +150,21 @@ describe("placement edge cases", () => {
     expect(() => g.submitMove(1, ID(1), place(g, 1, vCol(8, 6, ["1"])), T0 + 1)).toThrow(GameError); // "61" vertical: no '='
   });
 });
+
+describe("tile tracking (unseen tiles)", () => {
+  it("unseen = bag + opponent rack, built only from public information", async () => {
+    const { unseenTiles } = await import("@/lib/game-engine");
+    const g = newGame({ rules: STRICT, racks: [["6", "=", "6"], []] });
+    g.submitMove(0, ID(0), place(g, 0, hRow(7, 6, ["6", "=", "6"])), T0);
+    for (const side of [0, 1]) {
+      const v = g.view(side, T0);
+      const u = unseenTiles(v, side);
+      expect(u.total).toBe(v.bagCount + v.sides[1 - side].rackCount);
+      // it must match the real hidden tiles exactly, face by face
+      const hidden = [...g.state.bag, ...g.state.sides[1 - side].rack];
+      for (const e of u.entries) expect(e.unseen).toBe(hidden.filter((t) => t.face === e.def.face).length);
+    }
+    const spec = unseenTiles(g.view(null, T0), null);
+    expect(spec.total).toBe(g.state.bag.length + 16);
+  });
+});

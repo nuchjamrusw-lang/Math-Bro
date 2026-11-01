@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Send, Undo2, Shuffle, SkipForward, Repeat2, Flag, PauseCircle, PlayCircle, Download, ShoppingBag } from "lucide-react";
+import { Send, Undo2, Shuffle, SkipForward, Repeat2, Flag, PauseCircle, PlayCircle, Download } from "lucide-react";
 import type { PlacementInput } from "@/lib/game-engine";
 import { layoutFor } from "@/lib/game-engine/engine";
 import { previewFromView } from "@/lib/game-engine/client-preview";
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { MovePreviewPanel } from "./move-preview";
+import { UnseenTilesButton } from "./unseen-tiles-dialog";
 import { HistoryPanel } from "./history-panel";
 import { ConfirmDialog, DrawDialog, ExchangeDialog, SubmitDialog, SymbolPicker } from "./dialogs";
 import { useTileDrag, type DragFrom, type DropTarget } from "./use-tile-drag";
@@ -217,7 +218,7 @@ export function GameView({ controller, header, voice, sidebarExtra, memberMeta }
           </div>
           <div className="flex items-center justify-between gap-2 px-1">
             <Badge tone={statusText.tone} data-testid="game-status">{statusText.t}</Badge>
-            <span className="flex items-center gap-1.5 text-xs font-medium text-muted" data-testid="bag-count"><ShoppingBag className="size-3.5" />{view.bagCount} in bag</span>
+            <UnseenTilesButton view={view} mySide={mySide} />
           </div>
           <div className="relative mx-auto w-full max-w-[min(100%,calc(100dvh-300px))] min-w-[300px]">
             <GameBoard
