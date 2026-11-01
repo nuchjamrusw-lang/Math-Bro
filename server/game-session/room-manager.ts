@@ -186,7 +186,7 @@ export class RoomManager {
         players: sides.flatMap((ms, side) => ms.map((m) => ({ userId: m.userId, username: m.username, side }))),
       }).then((id) => {
         room.matchId = id;
-        if (id) { db.primeSeq(id, engine.state); this.emit.roomState(room); db.persistState(id, engine.state); }
+        if (id) { this.emit.roomState(room); db.persistState(id, engine.state); }
       });
     }
     return room;

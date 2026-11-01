@@ -44,6 +44,12 @@ export function ReplayViewer({ data }: { data: ReplayData }) {
   const names = [0, 1].map((s) => data.players.filter((p) => p.side === s).map((p) => p.username).join(" & ") || `Side ${s + 1}`);
   const highlight = new Set(f.highlight.map((c) => `${c.row},${c.col}`));
   const rec = f.record;
+  // Show withdrawn (successfully challenged) tiles as red ghosts on the board.
+  const withdrawn = new Map(
+    rec?.type === "PLAY" && rec.status === "WITHDRAWN" && rec.placements
+      ? rec.placements.map((p) => [`${p.row},${p.col}`, { tile: { id: p.tileId, face: p.face, kind: p.kind, points: p.points }, value: p.value }] as const)
+      : [],
+  );
 
   if (!data.replayEnabled) {
     return <div className="mx-auto max-w-md px-4 py-24 text-center"><p className="font-semibold">Replay was disabled for this match.</p><Button className="mt-4" asChild><Link href="/profile">Back</Link></Button></div>;
@@ -62,7 +68,7 @@ export function ReplayViewer({ data }: { data: ReplayData }) {
               </Card>
             ))}
           </div>
-          <div className="mx-auto w-full max-w-[min(100%,calc(100dvh-260px))]"><GameBoard board={f.board} layout={layout} highlight={highlight} /></div>
+          <div className="mx-auto w-full max-w-[min(100%,calc(100dvh-260px))]"><GameBoard board={f.board} layout={layout} highlight={highlight} tentative={withdrawn} errorCells={new Set(withdrawn.keys())} /></div>
           <div className="flex flex-col items-center gap-2">
             <div className="flex items-center gap-1.5">
               <Button variant="secondary" size="icon" onClick={() => setI(0)} aria-label="First"><ChevronsLeft /></Button>

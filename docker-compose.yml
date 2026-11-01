@@ -1,0 +1,12 @@
+# Local PostgreSQL for development:  docker compose up -d
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mathbro
+    ports: ["5432:5432"]
+    volumes: [mathbro-db:/var/lib/postgresql/data]
+volumes:
+  mathbro-db:

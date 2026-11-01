@@ -144,6 +144,20 @@ async function main() {
   await shot(a, "09-result");
   log("game over — result screen shown");
 
+  // Match history & replay (persisted in PostgreSQL)
+  await a.waitForTimeout(2500);
+  await a.goto(`${BASE}/profile`);
+  await a.getByRole("link", { name: "Replay" }).first().waitFor();
+  await shot(a, "11-profile-history");
+  await a.getByRole("link", { name: "Replay" }).first().click();
+  await a.getByTestId("replay-score-0").waitFor();
+  await a.getByRole("button", { name: "First", exact: true }).click();
+  await a.getByRole("button", { name: "Next move", exact: true }).click();
+  await a.getByRole("button", { name: "Next move", exact: true }).click();
+  await a.getByRole("button", { name: "Next move", exact: true }).click();
+  await shot(a, "12-replay");
+  log("replay viewer works");
+
   // Mobile layout check
   const m = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const mp = await m.newPage();
