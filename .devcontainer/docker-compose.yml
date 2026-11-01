@@ -1,0 +1,19 @@
+# GitHub Codespaces / Dev Containers: Node 22 app container + PostgreSQL 16, sharing one network.
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    network_mode: service:db
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mathbro
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

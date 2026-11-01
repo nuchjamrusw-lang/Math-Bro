@@ -1,0 +1,11 @@
+{
+  "name": "Math&Bro",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": { "label": "Math&Bro", "onAutoForward": "openBrowser" }
+  },
+  "postCreateCommand": "cp -n .env.example .env; npm install && npx prisma db push"
+}

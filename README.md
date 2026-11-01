@@ -17,6 +17,14 @@ Math&Bro is a web game for A-Math, the crossword-style equation board game, play
 - **Practice mode** runs the same engine in the browser for two players on one device.
 - **Score and tile management modes A–D:** automatic or manual scoring, and automatic or manual tile drawing.
 
+## Run without a computer (iPad / browser only)
+
+- **GitHub Codespaces:** on the repo page choose **Code → Codespaces → Create codespace**.
+  `.devcontainer/` starts Node 22 and PostgreSQL and runs `npm install` and `prisma db push`.
+  When it finishes, run `npm run dev` in the terminal and open the forwarded port 3000.
+- **Permanent link (Railway, Render, …):** deploy the repo with the `Dockerfile`, add a PostgreSQL database,
+  and set `DATABASE_URL` and `AUTH_SECRET`.
+
 ## Quick start
 
 Requirements: Node 20+ and PostgreSQL 14+.
@@ -42,6 +50,7 @@ Or build the image with `docker build -t mathbro .`. The container runs `prisma 
 | `DATABASE_URL` | PostgreSQL connection string |
 | `AUTH_SECRET` | Secret for HS256 session JWTs. **Required in production.** |
 | `PORT` | HTTP port (default 3000) |
+| `BIND_HOST` | Interface to listen on (default `0.0.0.0`) |
 | `COOKIE_SECURE` | `true`/`false`. Defaults to `true` in production; set `false` only when serving over plain HTTP. |
 | `NEXT_PUBLIC_ICE_SERVERS` | JSON array of `RTCIceServer`. Add a TURN server so voice works behind strict NATs. |
 | `CORS_ORIGIN` | Comma-separated origins allowed to open sockets from another domain (usually not needed) |

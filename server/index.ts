@@ -10,7 +10,8 @@ import { setupVoiceSignaling } from "./voice-signaling";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
-const hostname = process.env.HOSTNAME ?? "0.0.0.0";
+// Not HOSTNAME: Docker and Codespaces set it to the machine name, which would bind the wrong interface.
+const hostname = process.env.BIND_HOST ?? "0.0.0.0";
 
 async function main() {
   const app = next({ dev, hostname, port });
