@@ -42,7 +42,7 @@ npm run dev                     # http://localhost:3000
 Production:
 
 ```bash
-npm run build && npm start      # PORT=3000 by default
+npm run build && npm start      # PORT=3000 by default; runs the compiled single-process dist/server.mjs
 ```
 
 Or build the image with `docker build -t mathbro .`. The container runs `prisma db push` and then starts the server.
@@ -159,6 +159,10 @@ machine with these phases: `WAITING → PLAYING ⇄ CHALLENGE_WINDOW → CHALLEN
 | Tests | Vitest, socket.io-client, Playwright | |
 
 ### Deployment
+
+The production server is compiled with esbuild into one `dist/server.mjs` and started with plain `node`, with no npm
+or tsx wrapper processes, which uses about 250 MB of RAM. The Dockerfile caps the heap at 320 MB for 512 MB
+instances. On SIGTERM (deploys, idle spin-down) every live game is saved before exit, so restored clocks are exact.
 
 The game server needs a host that keeps processes running and supports WebSockets, such as Railway, Render,
 Fly.io or a VPS. Use the Dockerfile and a managed PostgreSQL instance. Vercel can host only the pages, so this

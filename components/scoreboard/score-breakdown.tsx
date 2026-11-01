@@ -4,12 +4,14 @@ import { displaySymbol } from "@/components/tile/tile";
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
-const PREM_LABEL: Record<string, string> = { TE: "3×EQ", DE: "2×EQ", TP: "3×PC", DP: "2×PC", STAR: "★ 3×PC", NORMAL: "" };
 const PREM_CLS: Record<string, string> = { TE: "bg-te text-te-ink", DE: "bg-de text-de-ink", TP: "bg-tp text-tp-ink", DP: "bg-dp text-dp-ink", STAR: "bg-tp text-tp-ink", NORMAL: "" };
 
 /** Transparent, auditable score calculation for one move. */
 export function ScoreBreakdown({ score }: { score: MoveScore }) {
   const { t } = useI18n();
+  const PREM_LABEL: Record<string, string> = {
+    TE: `3× ${t("cell.eq")}`, DE: `2× ${t("cell.eq")}`, TP: `3× ${t("cell.pc")}`, DP: `2× ${t("cell.pc")}`, STAR: `★ 3× ${t("cell.pc")}`, NORMAL: "",
+  };
   return (
     <div className="space-y-3 text-sm">
       {score.equations.map((eq, i) => (

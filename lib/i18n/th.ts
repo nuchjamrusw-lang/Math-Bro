@@ -291,6 +291,9 @@ export const th: Dict = {
   "legend.TP": "เบี้ย ×3",
   "legend.DP": "เบี้ย ×2",
   "legend.star": "ช่องเริ่ม (เบี้ย ×3)",
+  "cell.eq": "สมการ",
+  "cell.pc": "เบี้ย",
+  "board.aria": "กระดาน A-Math",
 
   "preview.yourMove": "ตาของคุณ",
   "preview.help": "ลากเบี้ยจากแป้นวางบนกระดาน หรือแตะเบี้ยแล้วแตะช่องที่ต้องการ",

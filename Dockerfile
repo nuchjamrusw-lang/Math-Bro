@@ -7,10 +7,14 @@ FROM base AS build
 COPY package*.json ./
 RUN npm ci
 COPY . .
-RUN npx prisma generate && npx next build
+# prisma generate + next build + compile the server to a single dist/server.mjs
+RUN npm run build
 
 FROM base AS run
 ENV NODE_ENV=production PORT=3000
+# Keep the heap well inside small (512 MB) instances so the process is not OOM-killed.
+ENV NODE_OPTIONS=--max-old-space-size=320
 COPY --from=build /app /app
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma db push --skip-generate && npm start"]
+# Run node directly (no npm/tsx wrapper processes) and let it receive signals for clean shutdowns.
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js db push --skip-generate && exec node dist/server.mjs"]

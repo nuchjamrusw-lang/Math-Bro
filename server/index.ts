@@ -7,6 +7,7 @@ import next from "next";
 import { Server } from "socket.io";
 import { setupGameSockets } from "./socket";
 import { setupVoiceSignaling } from "./voice-signaling";
+import { flushAll, persistState } from "./game-session/persistence";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
@@ -33,6 +34,24 @@ async function main() {
   httpServer.listen(port, hostname, () => {
     console.log(`▶ Math&Bro ready on http://localhost:${port} (${dev ? "development" : "production"})`);
   });
+
+  // Hosts stop the process on every deploy / idle spin-down (SIGTERM). Save every live game *now*,
+  // so the restored clocks are exact (time while the server is down is never charged).
+  let stopping = false;
+  const shutdown = async (signal: string) => {
+    if (stopping) return;
+    stopping = true;
+    console.log(`[server] ${signal} received — saving live games`);
+    for (const room of manager.rooms.values()) {
+      if (room.engine && room.matchId && room.status === "PLAYING") persistState(room.matchId, room.engine.state);
+    }
+    const timeout = new Promise((r) => setTimeout(r, 8000));
+    await Promise.race([flushAll(), timeout]);
+    io.close();
+    process.exit(0);
+  };
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
 }
 
 main().catch((e) => {

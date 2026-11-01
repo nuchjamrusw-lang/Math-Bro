@@ -10,3 +10,4 @@ coverage
 # local tools
 cloudflared
 tunnel.log
+dist

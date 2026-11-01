@@ -291,6 +291,9 @@ export const zh: Dict = {
   "legend.TP": "3 倍牌分",
   "legend.DP": "2 倍牌分",
   "legend.star": "起点（3 倍牌分）",
+  "cell.eq": "等式",
+  "cell.pc": "牌分",
+  "board.aria": "A-Math 棋盘",
 
   "preview.yourMove": "你的回合",
   "preview.help": "把牌从牌架拖到棋盘上，或先点牌再点格子。",

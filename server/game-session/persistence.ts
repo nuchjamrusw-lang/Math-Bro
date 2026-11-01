@@ -24,6 +24,10 @@ export async function flush(matchId: string) {
   await chains.get(matchId);
 }
 
+export async function flushAll() {
+  await Promise.all([...chains.values()]);
+}
+
 export async function createMatch(args: {
   roomCode: string;
   settings: RoomSettings;
