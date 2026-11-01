@@ -166,9 +166,8 @@ deploy `server/` separately and point the client socket at it with `CORS_ORIGIN`
 These rules were unclear in the brief or need an official reference. Each one is configurable
 (see [docs/RULES_CONFIG.md](docs/RULES_CONFIG.md)), and the defaults are listed below.
 
-1. **Board layout.** I could not find an official A-Math premium-square map. The current layout uses the classic
-   15×15 crossword geometry with A-Math colours, and the center ★ counts as 3× piece, as the brief specifies.
-   **Please supply the official layout before tournament use.** You only need to edit `STANDARD_LAYOUT_ROWS`.
+1. **Board layout.** ✅ Confirmed against the reference board image the project owner supplied. The
+   squares at (4,4), (4,10), (10,4) and (10,10) are 3× Piece. The center ★ counts as 3× Piece.
 2. **Unary minus.** A negative sign is allowed only at the start of an equation side, so `3 × -2` is rejected
    because two operators touch.
 3. **Tiles 10–20** cannot be joined with other digits. Numbers are at most 3 digits long. Chained `=` signs are allowed.

@@ -18,8 +18,9 @@ describe("board layout", () => {
     const count = (t: string) => STANDARD_LAYOUT.cells.flat().filter((x) => x === t).length;
     expect(count("TE")).toBe(8);
     expect(count("DE")).toBe(12);
-    expect(STANDARD_LAYOUT.cells[4][4]).toBe("NORMAL"); // diagonal is 3 squares per corner
-    expect(count("TP")).toBe(12);
+    expect(STANDARD_LAYOUT.cells[4][4]).toBe("TP"); // reference board: 3× piece, not 2× equation
+    expect(STANDARD_LAYOUT.cells[10][10]).toBe("TP");
+    expect(count("TP")).toBe(16);
     expect(count("DP")).toBe(24);
     expect(STANDARD_LAYOUT.cells[0][0]).toBe("TE");
     expect(STANDARD_LAYOUT.cells[1][1]).toBe("DE");

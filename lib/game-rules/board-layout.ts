@@ -1,14 +1,12 @@
 /**
  * Board layout configuration.
  *
- * ⚠️ VERIFY BEFORE OFFICIAL COMPETITION USE:
- * The layout below follows the classic 15×15 crossword-board premium geometry that the
- * A-Math board is based on, with the A-Math colour/semantics mapping
+ * Verified against the A-Math reference board image (a-mathismylife.blogspot.com) supplied by the
+ * project owner. Mapping
  *   R = Triple Equation (red), Y = Double Equation (yellow),
  *   B = Triple Piece (blue),   O = Double Piece (orange),
  *   * = Center Star (acts as Triple Piece, per project spec), . = normal.
- * It has NOT been checked against an official A-Math board reference. To change it,
- * edit the string grid only — nothing else in the engine/UI depends on positions.
+ * To change it, edit the string grid only — nothing else in the engine/UI depends on positions.
  */
 
 export type PremiumType = "TE" | "DE" | "TP" | "DP" | "STAR" | "NORMAL";
@@ -40,13 +38,13 @@ export const STANDARD_LAYOUT_ROWS: string[] = [
   ".Y...B...B...Y.",
   "..Y...O.O...Y..",
   "O..Y...O...Y..O",
-  "...............",
+  "....B.....B....",
   ".B...B...B...B.",
   "..O...O.O...O..",
   "R..O...*...O..R",
   "..O...O.O...O..",
   ".B...B...B...B.",
-  "...............",
+  "....B.....B....",
   "O..Y...O...Y..O",
   "..Y...O.O...Y..",
   ".Y...B...B...Y.",

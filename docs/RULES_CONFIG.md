@@ -11,7 +11,7 @@ They are frozen into the match when the game starts, and stored in `Match.rules`
 
 | Option | Default | Meaning |
 |---|---|---|
-| `layoutRows` | `STANDARD_LAYOUT_ROWS` | 15 strings of 15 chars: `R`=3× Equation, `Y`=2× Equation, `B`=3× Piece, `O`=2× Piece, `*`=Center Star, `.`=normal. Defined in `lib/game-rules/board-layout.ts`. **⚠ Check this against an official A-Math board before using it in tournaments.** |
+| `layoutRows` | `STANDARD_LAYOUT_ROWS` | 15 strings of 15 chars: `R`=3× Equation, `Y`=2× Equation, `B`=3× Piece, `O`=2× Piece, `*`=Center Star, `.`=normal. Defined in `lib/game-rules/board-layout.ts`. Checked against the A-Math reference board supplied by the project owner. |
 | `PREMIUM_INFO.STAR` | 3× piece | What the center star does |
 | `STANDARD_TILE_SET` | 100 tiles | Face, count and points (`lib/game-rules/tiles.ts`) |
 | `rackSize` | 8 | Tiles per rack |
