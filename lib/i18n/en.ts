@@ -298,9 +298,6 @@ export const en = {
   "legend.TP": "3× Piece",
   "legend.DP": "2× Piece",
   "legend.star": "Start (3× Piece)",
-  // short labels printed inside board squares
-  "cell.eq": "EQ",
-  "cell.pc": "PC",
   "board.aria": "A-Math board",
 
   // move preview & breakdown

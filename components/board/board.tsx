@@ -10,11 +10,12 @@ import { useI18n } from "@/lib/i18n/client";
 
 export interface TentativeTile { tile: TileT; value?: string }
 
-const PREMIUM_STYLE: Record<PremiumType, { cls: string; top?: string; bottom?: "cell.eq" | "cell.pc" }> = {
-  TE: { cls: "bg-te text-te-ink", top: "3×", bottom: "cell.eq" },
-  DE: { cls: "bg-de text-de-ink", top: "2×", bottom: "cell.eq" },
-  TP: { cls: "bg-tp text-tp-ink", top: "3×", bottom: "cell.pc" },
-  DP: { cls: "bg-dp text-dp-ink", top: "2×", bottom: "cell.pc" },
+// Square labels stay as short English abbreviations in every language (owner's choice).
+const PREMIUM_STYLE: Record<PremiumType, { cls: string; top?: string; bottom?: string }> = {
+  TE: { cls: "bg-te text-te-ink", top: "3×", bottom: "EQ" },
+  DE: { cls: "bg-de text-de-ink", top: "2×", bottom: "EQ" },
+  TP: { cls: "bg-tp text-tp-ink", top: "3×", bottom: "PC" },
+  DP: { cls: "bg-dp text-dp-ink", top: "2×", bottom: "PC" },
   STAR: { cls: "bg-tp text-tp-ink" },
   NORMAL: { cls: "bg-cell" },
 };
@@ -38,9 +39,7 @@ const COLS = "ABCDEFGHIJKLMNO";
 export const GameBoard = memo(function GameBoard({
   board, layout, tentative, highlight, equationCells, errorCells, pendingCells, interactive, onCellClick, onTentativePointerDown, className,
 }: BoardProps) {
-  const { t, lang } = useI18n();
-  // Thai/Chinese words are wider/denser than "EQ"/"PC": tune the size so they stay inside the square.
-  const bottomSize = lang === "th" ? "text-[1.25cqw]" : lang === "zh" ? "text-[1.3cqw]" : "text-[1.15cqw] tracking-wide";
+  const { t } = useI18n();
   return (
     <div className={cn("board-wrap w-full", className)}>
       <div
@@ -74,7 +73,7 @@ export const GameBoard = memo(function GameBoard({
                 {!placed && !tent && st.top && (
                   <span className="flex flex-col items-center leading-[1.05] font-semibold">
                     <span className="text-[1.65cqw]">{st.top}</span>
-                    <span className={cn("whitespace-nowrap opacity-80", bottomSize)}>{t(st.bottom!)}</span>
+                    <span className="text-[1.15cqw] tracking-wide opacity-80">{st.bottom}</span>
                   </span>
                 )}
                 {placed && (
