@@ -164,7 +164,7 @@ export function symbolsToText(symbols: string[]): string {
   let out = "";
   symbols.forEach((s, i) => {
     const prev = symbols[i - 1];
-    const tight = prev !== undefined && isNumberSymbol(prev) && isNumberSymbol(s);
+    const tight = prev !== undefined && isDigitSymbol(prev) && isDigitSymbol(s);
     out += (i === 0 || tight ? "" : " ") + s;
   });
   return out;

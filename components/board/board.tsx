@@ -1,0 +1,127 @@
+"use client";
+import { memo } from "react";
+import { motion } from "framer-motion";
+import type { Board as BoardData } from "@/lib/game-engine/board";
+import type { BoardLayout, PremiumType } from "@/lib/game-rules/board-layout";
+import type { Tile as TileT } from "@/lib/tile-manager";
+import { Tile } from "@/components/tile/tile";
+import { cn } from "@/lib/utils";
+
+export interface TentativeTile { tile: TileT; value?: string }
+
+const PREMIUM_STYLE: Record<PremiumType, { cls: string; top?: string; bottom?: string }> = {
+  TE: { cls: "bg-te text-te-ink", top: "3×", bottom: "EQ" },
+  DE: { cls: "bg-de text-de-ink", top: "2×", bottom: "EQ" },
+  TP: { cls: "bg-tp text-tp-ink", top: "3×", bottom: "PC" },
+  DP: { cls: "bg-dp text-dp-ink", top: "2×", bottom: "PC" },
+  STAR: { cls: "bg-tp text-tp-ink" },
+  NORMAL: { cls: "bg-cell" },
+};
+
+export interface BoardProps {
+  board: BoardData;
+  layout: BoardLayout;
+  tentative?: Map<string, TentativeTile>;
+  highlight?: Set<string>;
+  equationCells?: Set<string>;
+  errorCells?: Set<string>;
+  pendingCells?: Set<string>;
+  interactive?: boolean;
+  onCellClick?: (row: number, col: number) => void;
+  onTentativePointerDown?: (e: React.PointerEvent, tileId: string) => void;
+  className?: string;
+}
+
+const COLS = "ABCDEFGHIJKLMNO";
+
+export const GameBoard = memo(function GameBoard({
+  board, layout, tentative, highlight, equationCells, errorCells, pendingCells, interactive, onCellClick, onTentativePointerDown, className,
+}: BoardProps) {
+  return (
+    <div className={cn("board-wrap w-full", className)}>
+      <div
+        className="grid aspect-square w-full gap-[0.35cqw] rounded-[2.2cqw] border border-line bg-surface p-[1.1cqw] shadow-[var(--shadow-soft)]"
+        style={{ gridTemplateColumns: `repeat(${layout.size}, minmax(0, 1fr))` }}
+        role="grid"
+        aria-label="A-Math board"
+      >
+        {layout.cells.map((row, r) =>
+          row.map((type, c) => {
+            const key = `${r},${c}`;
+            const placed = board[r][c];
+            const tent = tentative?.get(key);
+            const st = PREMIUM_STYLE[type];
+            const onEq = equationCells?.has(key);
+            return (
+              <div
+                key={key}
+                data-cell={key}
+                role="gridcell"
+                aria-label={`${COLS[c]}${r + 1}${type !== "NORMAL" ? ` ${type}` : ""}`}
+                onClick={() => onCellClick?.(r, c)}
+                className={cn(
+                  "relative grid aspect-square place-items-center rounded-[0.9cqw] transition-colors",
+                  st.cls,
+                  interactive && !placed && !tent && "cursor-pointer hover:brightness-[0.97]",
+                  onEq && !placed && !tent && "ring-1 ring-primary/30",
+                )}
+              >
+                {!placed && !tent && type === "STAR" && <span className="text-[3.6cqw] leading-none">★</span>}
+                {!placed && !tent && st.top && (
+                  <span className="flex flex-col items-center leading-[1.05] font-semibold">
+                    <span className="text-[1.65cqw]">{st.top}</span>
+                    <span className="text-[1.15cqw] tracking-wide opacity-80">{st.bottom}</span>
+                  </span>
+                )}
+                {placed && (
+                  <motion.div
+                    className="absolute inset-[3%]"
+                    initial={highlight?.has(key) ? { scale: 0.6, opacity: 0 } : false}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  >
+                    <Tile
+                      variant="board" face={placed.face} kind={placed.kind} points={placed.points} value={placed.value}
+                      highlight={highlight?.has(key)} pending={pendingCells?.has(key)} error={errorCells?.has(key)}
+                      className={cn(onEq && "ring-2 ring-primary/50")}
+                    />
+                  </motion.div>
+                )}
+                {tent && (
+                  <motion.div
+                    className="no-select absolute inset-[3%] cursor-grab active:cursor-grabbing"
+                    initial={{ scale: 0.7 }}
+                    animate={{ scale: 1 }}
+                    onPointerDown={(e) => onTentativePointerDown?.(e, tent.tile.id)}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Tile variant="board" face={tent.tile.face} kind={tent.tile.kind} points={tent.tile.points} value={tent.value} tentative error={errorCells?.has(key)} />
+                  </motion.div>
+                )}
+              </div>
+            );
+          }),
+        )}
+      </div>
+    </div>
+  );
+});
+
+export function BoardLegend({ className }: { className?: string }) {
+  const items: [string, string, string][] = [
+    ["bg-te", "3× Equation", "สมการ ×3"],
+    ["bg-de", "2× Equation", "สมการ ×2"],
+    ["bg-tp", "3× Piece", "เบี้ย ×3"],
+    ["bg-dp", "2× Piece", "เบี้ย ×2"],
+  ];
+  return (
+    <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted", className)}>
+      {items.map(([c, en, th]) => (
+        <span key={en} className="flex items-center gap-1.5" title={th}>
+          <span className={cn("size-3 rounded-[4px]", c)} /> {en}
+        </span>
+      ))}
+      <span className="flex items-center gap-1.5"><span className="text-tp-ink">★</span> Start (3× Piece)</span>
+    </div>
+  );
+}
