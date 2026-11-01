@@ -60,7 +60,7 @@ Or build the image with `docker build -t mathbro .`. The container runs `prisma 
 ## Tests
 
 ```bash
-npm test                        # 89 unit and integration tests (engine, rules, scoring, timer, sockets)
+npm test                        # 90 unit and integration tests (engine, rules, scoring, timer, sockets)
 npm run typecheck
 # Browser play-through: two real browsers, voice chat, challenge, passes, result screen and mobile layout
 npm run build && PORT=3100 npm start &

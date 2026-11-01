@@ -73,3 +73,27 @@ describe("tile set", () => {
     expect(rackPoints(tiles.filter((t) => t.face === "BLANK"))).toBe(0);
   });
 });
+
+describe("landing page sample board", () => {
+  it("is built only from legal, connected moves with correct equations", async () => {
+    const { buildSampleBoard } = await import("@/lib/game-engine/sample-board");
+    const s = buildSampleBoard(); // throws if any move is illegal or any equation is wrong
+    expect(s.equations).toEqual(["7 × 2 = 5 + 9", "3 × 3 = 9", "12 ÷ 4 = 3", "7 - 1 = 6", "6 = 2 × 3"]);
+    expect(s.board[7][7]?.value).toBe("=");
+    // Independent scan: every horizontal/vertical run of 2+ tiles must be a valid equation.
+    const { validateEquation } = await import("@/lib/math-validator");
+    const runs: string[][] = [];
+    for (const vertical of [false, true]) {
+      for (let a = 0; a < 15; a++) {
+        let cur: string[] = [];
+        for (let b = 0; b <= 15; b++) {
+          const cell = b < 15 ? (vertical ? s.board[b][a] : s.board[a][b]) : null;
+          if (cell) cur.push(cell.value);
+          else { if (cur.length >= 2) runs.push(cur); cur = []; }
+        }
+      }
+    }
+    expect(runs).toHaveLength(5);
+    for (const r of runs) expect(validateEquation(r).valid, r.join(" ")).toBe(true);
+  });
+});
